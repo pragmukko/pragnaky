@@ -14,6 +14,7 @@ resolvers ++= Seq(
 libraryDependencies ++= {
   Seq(
     "org.eclipse.paho"   %   "org.eclipse.paho.client.mqttv3"     % "1.0.3-SNAPSHOT",
-    "default"  % "swarmakka_2.11" % "1.0"  artifacts(Artifact("swarmakka_2.11-assembly"))
+    "default"  % "swarmakka_2.11" % "1.0"  artifacts(Artifact("swarmakka_2.11-assembly")),
+    "org.fusesource" % "sigar" % "1.6.4" classifier("native") classifier("")
   )
 }

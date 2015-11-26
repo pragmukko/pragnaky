@@ -26,7 +26,7 @@ class Neo4JAdapter extends GCExtentions {
       println("Found new server " + id)
       manager ! RegisterListener(self, id)
 
-    case telemetry:Array[JsValue] => println(telemetry)
+    case telemetry:Array[JsValue] => telemetry foreach println
 
   }
 }

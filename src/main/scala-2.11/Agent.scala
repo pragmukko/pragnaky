@@ -1,10 +1,12 @@
 import java.util.Date
 
 import actors.Messages.{DevDiscover, Unsubscribe, Subscribe}
-import akka.actor.{ActorRef, Actor}
+import akka.actor.{ActorLogging, ActorRef, Actor}
 import builders.EmbeddedNode
 import spray.json.{JsNumber, JsObject}
+import util.Telemetry
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 /**
  * Created by max on 11/24/15.
@@ -17,7 +19,7 @@ object Agent extends App {
 
 case object Tick
 
-class ClusterState extends Actor {
+class ClusterState extends Actor with Telemetry with ActorLogging {
 
   @volatile var listeners = Set.empty[ActorRef]
 
@@ -40,8 +42,10 @@ class ClusterState extends Actor {
   }
 
   def sendTelemetry(dst:ActorRef) = {
-    val msg = JsObject(Map("when" -> JsNumber(new Date().getTime)))
-    dst ! Array(msg)
+    nodeTelemetry match {
+      case Success(tel) => dst ! Array(tel)
+      case Failure(th) => log.error(th, "Can't obtain telemetry")
+    }
   }
 
 }
