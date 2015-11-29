@@ -8,13 +8,18 @@ resolvers ++= Seq(
   "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
   "Paho Official Releases" at "https://repo.eclipse.org/content/repositories/paho-releases/",
   "Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/",
+  "anormcypher" at "http://repo.anormcypher.org/",
+  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/",
   Resolver.bintrayRepo("hseeberger", "maven")
 )
 
 libraryDependencies ++= {
   Seq(
     "org.eclipse.paho"   %   "org.eclipse.paho.client.mqttv3"     % "1.0.3-SNAPSHOT",
-    "default"  % "swarmakka_2.11" % "1.0"  artifacts(Artifact("swarmakka_2.11-assembly")),
-    "org.fusesource" % "sigar" % "1.6.4" classifier("native") classifier("")
+    "default"  % "swarmakka_2.11" % "1.1"  artifacts(Artifact("swarmakka_2.11-assembly")),
+    "org.fusesource" % "sigar" % "1.6.4" classifier("native") classifier(""),
+    "org.reactivemongo" %% "reactivemongo" % "0.11.7",
+    "joda-time" % "joda-time" % "2.9.1"
+
   )
 }

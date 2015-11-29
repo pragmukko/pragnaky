@@ -22,7 +22,6 @@ trait Telemetry {
     val netStat = getNetStat
     JsObject(
       Map(
-        "when" -> JsNumber(when),
         "cpu" -> JsNumber(cpu),
         "memory" -> JsNumber(mem.getUsedPercent),
         "netStat" -> JsArray(netStat :_*)
@@ -42,5 +41,7 @@ trait Telemetry {
         )
     } toList
   }
+
+  def netGateway = sigar.getNetInfo.getDefaultGateway()
 
 }

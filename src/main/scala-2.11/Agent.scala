@@ -1,12 +1,13 @@
 import java.net.InetAddress
 import java.util.Date
 
+import util.{Messages, Telemetry}
+import Messages.Register
 import actors.Messages.{Start, DevDiscover, Unsubscribe, Subscribe}
 import akka.actor.{Props, ActorLogging, ActorRef, Actor}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{MemberUp, InitialStateAsEvents, MemberEvent, UnreachableMember}
 import builders.EmbeddedNode
-import com.sun.media.jfxmediaimpl.HostUtils
 import spray.json.{JsString, JsNumber, JsObject}
 import util.Telemetry
 import utils.{NetUtils, MemberUtils}
@@ -60,10 +61,12 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
         val address = member.address.host.map(InetAddress.getByName(_)).getOrElse(NetUtils.localHost)
         context.actorOf(Props(classOf[TcpPinger], address), s"pinger-for-${address.getHostAddress}") ! Start
       }
+
     case Subscribe(listener) =>
       listener ! DevDiscover
       println("listener added " + listener)
       listeners += listener
+      listener ! Register(netGateway)
 
     case Unsubscribe(listener) =>
       listeners -= listener
