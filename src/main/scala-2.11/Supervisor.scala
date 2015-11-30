@@ -34,6 +34,8 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
 
     case telemetry:Array[JsObject] => persistTelemetry(sender(), telemetry)
 
+    case rp:RichPing => saveLatency(rp.toJs)
+
     case PersistenceError(err) =>
       err match {
         case th:Throwable => log.error(th, "Fail to persist")

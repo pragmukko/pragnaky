@@ -22,21 +22,25 @@ trait MongoMetricsDAL extends Mongo2Spray {
 
   implicit val executionContext:ExecutionContextExecutor
 
-  val (nodes, telemtery) = connect
+  val (nodes, telemetry, latency) = connect()
 
-  def addNodeIfNotExists(ip:String, router:String) = {
-    nodes.update(BSONDocument("addr" -> ip), BSONDocument("router" -> router), upsert = true)
+  def addNodeIfNotExists(ip:String, router:String) = handleError {
+    nodes.update(BSONDocument("addr" -> ip), BSONDocument("addr" -> ip, "router" -> router), upsert = true)
   }
 
-  def saveTelemetry(json:JsObject) = {
-    telemtery.insert(json)
+  def saveTelemetry(json:JsObject) = handleError {
+    telemetry.insert(json)
   }
 
-  def connect: (BSONCollection, BSONCollection) = {
+  def saveLatency(json:JsObject) = handleError {
+    latency.insert(json)
+  }
+
+  def connect(): (BSONCollection, BSONCollection, BSONCollection) = {
     val driver = new MongoDriver
     val connection = driver.connection(List("localhost"))
     val db = connection("ClusterStat")
-    (db("nodes"), db("telemetry"))
+    (db("nodes"), db("telemetry"), db("latency"))
   }
 
   def handleError(fnc: => Future[WriteResult] ) = {

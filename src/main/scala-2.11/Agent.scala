@@ -75,7 +75,8 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
-      listeners foreach (_ ! Array(rp.toJs))
+      //listeners foreach (_ ! Array(rp.toJs))
+      listeners foreach (_ ! rp )
 
   }
 
