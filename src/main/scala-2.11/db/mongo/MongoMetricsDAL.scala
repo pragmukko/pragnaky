@@ -18,11 +18,17 @@ import scala.util.{Failure, Success}
  */
 trait MongoMetricsDAL extends Mongo2Spray {
 
-  _: Actor =>
+  me: Any =>
+
+  val actorOpt: Option[ActorRef] = me match {
+    case a: Actor => Some(a.self)
+    case _ => None
+  }
 
   implicit val executionContext:ExecutionContextExecutor
 
-  val (nodes, telemetry, latency) = connect()
+  lazy val (nodes, telemetry, latency) = connect()
+  lazy val knownDbs = Map("nodes" -> nodes, "telemetry" -> telemetry, "latency" -> latency)
 
   def addNodeIfNotExists(ip:String, router:String) = handleError {
     nodes.update(BSONDocument("addr" -> ip), BSONDocument("addr" -> ip, "router" -> router), upsert = true)
@@ -46,8 +52,8 @@ trait MongoMetricsDAL extends Mongo2Spray {
   def handleError(fnc: => Future[WriteResult] ) = {
     fnc onComplete {
       case Success(res) if res.ok => // Evething is OK -> do nothing
-      case Success(res) => self ! PersistenceError(res)
-      case Failure(th)  => self ! PersistenceError(th)
+      case Success(res) => actorOpt foreach {_ ! PersistenceError(res)}; println(s"can't insert, result: $res")
+      case Failure(th)  => actorOpt foreach {_ ! PersistenceError(th)}; println(s"can't insert, cause: $th")
     }
   }
 
