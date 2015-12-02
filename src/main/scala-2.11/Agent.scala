@@ -81,7 +81,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
 
     case Tick =>
       listeners foreach sendTelemetry
-      cluster.state.members.map(_.address).filterNot(_ != cluster.selfAddress).map(_.host.map(InetAddress.getByName(_)).getOrElse(NetUtils.localHost)).foreach{addr =>pinger.ping(addr)}
+      cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).foreach{addr =>pinger.ping(addr)}
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
