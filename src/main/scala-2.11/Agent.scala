@@ -1,6 +1,7 @@
 import java.net.InetAddress
 import java.util.Date
 
+import actors.SwarmDiscovery
 import util.{Messages, Telemetry}
 import Messages.Register
 import actors.Messages.{Start, DevDiscover, Unsubscribe, Subscribe}
@@ -10,7 +11,7 @@ import akka.cluster.ClusterEvent.{MemberUp, InitialStateAsEvents, MemberEvent, U
 import builders.EmbeddedNode
 import spray.json.{JsString, JsNumber, JsObject}
 import util.Telemetry
-import utils.{NetUtils, MemberUtils}
+import utils.{ConfigProvider, NetUtils, MemberUtils}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -37,7 +38,7 @@ case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingF
   )
 }
 
-class ClusterState extends Actor with Telemetry with ActorLogging {
+class ClusterState extends Actor with Telemetry with ActorLogging with ConfigProvider with SwarmDiscovery {
 
   val cluster = Cluster(context.system)
 
@@ -47,12 +48,16 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
 
     //context.actorOf(Props[TcpPingResponder], "ping-responder")
     //new TcpPingResponderFlow()(context.system).start()
+
     new TcpPingResponderNio().start()
+    println("ping responder started")
   }
 
   @volatile var listeners = Set.empty[ActorRef]
 
   import context.dispatcher
+
+  discoverAndJoin()
 
   context.system.scheduler.schedule(1 second, 1 second, self, Tick)
 
@@ -61,6 +66,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
   override def receive : Receive = {
 
     case MemberUp(member) =>
+      println(s"member $member is Up")
       if (member.address != cluster.selfAddress) {
         println(s"creating pinger for $member [$self]")
         val address = member.address.host.map(InetAddress.getByName(_)).getOrElse(NetUtils.localHost)
