@@ -1,12 +1,23 @@
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.{SocketAddress, SocketOption, InetAddress, InetSocketAddress}
 import java.nio.ByteBuffer
+import java.nio.channels.{AsynchronousChannelGroup, CompletionHandler, AsynchronousSocketChannel, AsynchronousServerSocketChannel}
+import java.util
+import java.util.concurrent
 
 import actors.Messages.Start
 import akka.actor._
 import akka.io.{Tcp, IO}
 import akka.io.Tcp.Register
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Sink, Flow, Source}
+import akka.stream.scaladsl.Tcp.{IncomingConnection, ServerBinding}
+import akka.stream.stage.{PushStage, Context, SyncDirective}
 import akka.util.ByteString
-import utils.ConfigProvider
+import utils.{ConfigProvider, NetUtils}
+
+import scala.annotation.tailrec
+import scala.concurrent.{ExecutionContext, Promise, Future}
+import scala.util.{Failure, Success}
 
 /**
  * Created by yishchuk on 27.11.2015.
@@ -108,3 +119,159 @@ class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress
   }
 }
 
+class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvider {
+  import akka.stream.scaladsl.Tcp
+  implicit val materializer = ActorMaterializer()
+
+  val connections: Source[IncomingConnection, Future[ServerBinding]] = Tcp().bind("0.0.0.0", config.getInt("pinger.port"))
+
+  def start() = {
+    connections runForeach { connection =>
+      println(s"New connection from: ${connection.remoteAddress}")
+
+      val pong = Flow[ByteString]
+        .filter(_.head == '>'.toByte)
+        .map(_.tail.asByteBuffer.getLong)
+        .map(ByteBuffer.allocate(17).put('<'.toByte).putLong(_).putLong(System.currentTimeMillis()).array())
+        .map(ByteString(_))
+
+      connection.handleWith(pong)
+    }
+  }
+}
+
+class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends ConfigProvider {
+  import akka.stream.scaladsl.Tcp
+  import scala.concurrent.duration._
+  implicit val materializer = ActorMaterializer()
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  val connection = Tcp().outgoingConnection(new InetSocketAddress(host, config.getInt("pinger.port")))
+
+  def source = Source.single(ByteString(ByteBuffer.allocate(9).put('>'.toByte).putLong(System.currentTimeMillis()).array()))
+
+  val pingFlow = Flow[ByteString]
+    .via(connection)
+    .filter(_.head == '<'.toByte)
+    .map{ bs =>
+      println(s"response!: ${bs.utf8String}")
+      val dataBB = bs.tail.asByteBuffer
+      val sentTs = dataBB.getLong
+      val replyTs = dataBB.getLong
+      val nowTs = System.currentTimeMillis()
+      RichPing(nowTs, NetUtils.localHost.getHostAddress, host, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
+    }
+  val pingSink = Sink.foreach[RichPing]{replyTo ! _}
+
+  def start() = {
+    system.scheduler.schedule(500 millis, 1 second) {
+      source.via(pingFlow).runWith(pingSink)
+    }
+  }
+
+}
+
+class TcpPingResponderNio extends ConfigProvider with PingNio {
+
+  //this.setDaemon(true)
+
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  val server = AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(config.getInt("pinger.port")))
+  println(s"ping responder bound to $server")
+
+  //@tailrec
+  def start(): Unit = {
+    val written = for {
+      ch <- accept(server)
+      bytes <- read(ch) if bytes.get() == '>'.toByte
+      out = transform(bytes)
+      written <- writeOnce(out, ch)
+    } yield written
+
+
+    written onComplete {
+      case Success(numWritten) => start()
+      case Failure(err) => println(s"pong error: $err"); start()
+    }
+
+  }
+
+  def transform(in: ByteBuffer): ByteString = {
+    ByteString(ByteBuffer.allocate(17).put('<'.toByte).putLong(in.getLong).putLong(System.currentTimeMillis()).array())
+  }
+
+}
+
+class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with PingNio {
+  import scala.concurrent.ExecutionContext.Implicits.global
+  // new InetSocketAddress(host, config.getInt("pinger.port")
+  def ping(host: InetAddress) = {
+    val channel = AsynchronousSocketChannel.open()
+    val request = ByteString(ByteBuffer.allocate(9).put('>'.toByte).putLong(System.currentTimeMillis()).array())
+    for {
+      channel <- connect(channel, new InetSocketAddress(host, config.getInt("pinger.port")))
+      numWritten <- write(request, channel)
+      readBytes <- read(channel) if readBytes.get() == '<'.toByte
+      ping = readPing(readBytes, host)
+    } {replyTo ! ping}
+  }
+  private def readPing(bb: ByteBuffer, host: InetAddress): RichPing = {
+    //println(s"response!: __")
+    //val dataBB = bs.tail.asByteBuffer
+    val sentTs = bb.getLong
+    val replyTs = bb.getLong
+    val nowTs = System.currentTimeMillis()
+    RichPing(nowTs, NetUtils.localHost.getHostAddress, host.getHostAddress, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
+  }
+}
+
+trait PingNio {
+  def accept(server: AsynchronousServerSocketChannel): Future[AsynchronousSocketChannel] = {
+    val p = Promise[AsynchronousSocketChannel]
+    server.accept(null, new CompletionHandler[AsynchronousSocketChannel, Void] {
+      def completed(client: AsynchronousSocketChannel, attachment: Void) = p.success(client)
+      def failed(e: Throwable, attachment: Void) = {println(s"error1: $e"); p.failure(e)}
+    })
+    p.future
+  }
+
+  def connect(client: AsynchronousSocketChannel, address: SocketAddress): Future[AsynchronousSocketChannel] = {
+    val p = Promise[AsynchronousSocketChannel]
+    client.connect(address, null, new CompletionHandler[Void, Void] {
+      def completed(cl: Void, att: Void) = p.success(client)
+      def failed(e: Throwable, attachment: Void) = p.failure(e)
+    })
+    p.future
+  }
+
+  def read(conn: AsynchronousSocketChannel): Future[ByteBuffer] = {
+    val buf = ByteBuffer.allocate(1024)
+    val p = Promise[ByteBuffer]
+    conn.read(buf, null, new CompletionHandler[Integer, Void] {
+      def completed(numBytes: Integer, attachment: Void): Unit = {
+        //println(s"read $numBytes bytes")
+        buf.flip()
+        p.success(buf)
+      }
+      def failed(e: Throwable, attachment: Void) = {println(s"fail1: $e"); p.failure(e)}
+    })
+    p.future
+  }
+
+  def writeOnce(bs: ByteString, sock: AsynchronousSocketChannel): Future[Integer] = {
+    val p = Promise[Integer]
+    sock.write(bs.asByteBuffer, null, new CompletionHandler[Integer, Void] {
+      def completed(numBytesWritten: Integer, attachment: Void) = p.success(numBytesWritten)
+      def failed(e: Throwable, attachment: Void) = p.failure(e)
+    })
+    p.future
+  }
+  def write(bs: ByteString, sock: AsynchronousSocketChannel)(implicit executor: ExecutionContext): Future[Unit] = {
+    writeOnce(bs, sock).flatMap { numBytesWritten =>
+      if (numBytesWritten == bs.length) Future.successful(())
+      else write(bs.drop(numBytesWritten), sock)
+    }
+  }
+
+}

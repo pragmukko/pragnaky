@@ -44,7 +44,10 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
   override def preStart() = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents,
       classOf[MemberEvent], classOf[UnreachableMember])
-    context.actorOf(Props[TcpPingResponder], "ping-responder")
+
+    //context.actorOf(Props[TcpPingResponder], "ping-responder")
+    //new TcpPingResponderFlow()(context.system).start()
+    new TcpPingResponderNio().start()
   }
 
   @volatile var listeners = Set.empty[ActorRef]
@@ -53,13 +56,18 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
 
   context.system.scheduler.schedule(1 second, 1 second, self, Tick)
 
+  val pinger = new TcpPingerNio(self)
+
   override def receive : Receive = {
 
     case MemberUp(member) =>
       if (member.address != cluster.selfAddress) {
         println(s"creating pinger for $member [$self]")
         val address = member.address.host.map(InetAddress.getByName(_)).getOrElse(NetUtils.localHost)
-        context.actorOf(Props(classOf[TcpPinger], address), s"pinger-for-${address.getHostAddress}") ! Start
+
+        //context.actorOf(Props(classOf[TcpPinger], address), s"pinger-for-${address.getHostAddress}") ! Start
+        //new TcpPingerFlow(address.getHostAddress, self)(context.system).start()
+
       }
 
     case Subscribe(listener) =>
@@ -71,7 +79,9 @@ class ClusterState extends Actor with Telemetry with ActorLogging {
     case Unsubscribe(listener) =>
       listeners -= listener
 
-    case Tick => listeners foreach sendTelemetry
+    case Tick =>
+      listeners foreach sendTelemetry
+      cluster.state.members.map(_.address).filterNot(_ != cluster.selfAddress).map(_.host.map(InetAddress.getByName(_)).getOrElse(NetUtils.localHost)).foreach{addr =>pinger.ping(addr)}
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
