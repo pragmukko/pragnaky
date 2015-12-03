@@ -1,7 +1,7 @@
 package db.mongo
 
 import akka.actor.{Actor, ActorRef}
-import reactivemongo.api.MongoDriver
+import reactivemongo.api.{DefaultDB, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
 import reactivemongo.bson.BSONDocument
@@ -27,7 +27,7 @@ trait MongoMetricsDAL extends Mongo2Spray {
 
   implicit val executionContext:ExecutionContextExecutor
 
-  lazy val (nodes, telemetry, latency) = connect()
+  lazy val (_db, nodes, telemetry, latency) = connect()
   lazy val knownDbs = Map("nodes" -> nodes, "telemetry" -> telemetry, "latency" -> latency)
 
   def addNodeIfNotExists(ip:String, router:String) = handleError {
@@ -42,11 +42,11 @@ trait MongoMetricsDAL extends Mongo2Spray {
     latency.insert(json)
   }
 
-  def connect(): (BSONCollection, BSONCollection, BSONCollection) = {
+  def connect(): (DefaultDB, BSONCollection, BSONCollection, BSONCollection) = {
     val driver = new MongoDriver
     val connection = driver.connection(List("localhost"))
     val db = connection("ClusterStat")
-    (db("nodes"), db("telemetry"), db("latency"))
+    (db, db("nodes"), db("telemetry"), db("latency"))
   }
 
   def handleError(fnc: => Future[WriteResult] ) = {

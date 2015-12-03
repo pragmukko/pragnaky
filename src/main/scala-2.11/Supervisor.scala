@@ -27,7 +27,9 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
 
   override def process(manager: ActorRef): Receive = {
 
-    case MemberUp(member) => subscribeTelemetry(member)
+    case MemberUp(member) =>
+      println("Subscribe " + member.address)
+      subscribeTelemetry(member)
 
     case Register(gateway) =>
       sender().path.address.host.foreach( addNodeIfNotExists(_, gateway) )
@@ -44,8 +46,10 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
   }
 
   def persistTelemetry(addr:ActorRef, telemetry:Array[JsObject]) = {
+    println("Try to persists telemetry " + telemetry)
     addr.path.address.host.toList flatMap  {
       host =>
+        println("Try to persists telemetry from host " + host)
         telemetry.map( t => JsObject(
           t.fields +
             ("addr" -> JsString(host)) +

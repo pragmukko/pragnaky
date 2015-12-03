@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        
+        <script src="vis/vis.js"></script>
+        <script src="jquery.js"></script>
+        <script src="chart/Chart.Core.js"></script>
+        <script src="chart/Chart.Doughnut.js"></script>
+        <link href="vis/vis.css" rel="stylesheet" type="text/css" />
+        <style type="text/css">
+            #graph {
+                width: 800px;
+                height: 400px;
+                border: 1px solid lightgray;
+            }
+            #cpu_cnv {
+                width: 100px;
+                height: 100px;
+            }
+            #mem_cnv {
+                width: 100px;
+                height: 100px;
+            }
+            .donut-inner {
+                margin-top: -60px;
+                margin-left: 25px;
+            }
+            .donut-inner span {font-size: 12px;}
+        </style>
+        
+    </head>
+    
+    <body>
+        <div id='graph'></div>
+        <div id="telemetry_snapshot">
+            
+        <table>
+            <tr>
+                <td>
+                    <canvas id="cpu_cnv"></canvas>
+                    <div class="donut-inner">
+                        <span id="cpu_value"></span>
+                    </div>
+                </td>
+                <td>
+                    <canvas id="mem_cnv"></canvas>
+                    <div class="donut-inner">
+                        <span id="mem_value"></span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+            
+        </div>
+        
+        <div id='latency_history'>
+            <div id="latency_viz"></div>
+        </div>
+        
+    </body>
+    
+    <script src="network.js"></script>
+    
+</html>
+    

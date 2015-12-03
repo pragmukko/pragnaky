@@ -11,10 +11,14 @@ import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
 import db.mongo.{Mongo2Spray, MongoMetricsDAL}
 import http.CorsSupport
-import reactivemongo.bson.BSONDocument
+import reactivemongo.api.collections.bson.BSONCollection
+import reactivemongo.bson.{BSONArray, BSONString, BSONDocument}
 import akka.http.scaladsl.model.StatusCodes._
+import reactivemongo.core.commands.{Last, Group}
 import spray.json._
 import utils.ConfigProvider
+import reactivemongo.api.commands._
+import scala.concurrent.Future
 
 /**
  * Created by yishchuk on 30.11.2015.
@@ -53,8 +57,20 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
                   db.find(q.toBson, p.toBson).sort(sort.toBson).cursor[BSONDocument]().collect[List](limit.getOrElse(100))
                 }
             }
+          } ~ path("edges") {
+            get {
+              complete {
+                val col:BSONCollection = knownDbs("latency")
+                import col.BatchCommands.AggregationFramework.{
+                  Group
+                }
+                val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))()
+                knownDbs("latency").aggregate(group).map(_.documents)
+              }
+            }
           }
       }
+
 
   }
 

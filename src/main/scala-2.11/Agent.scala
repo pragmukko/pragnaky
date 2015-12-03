@@ -38,7 +38,7 @@ case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingF
   )
 }
 
-class ClusterState extends Actor with Telemetry with ActorLogging with ConfigProvider with SwarmDiscovery {
+class ClusterState extends Actor with Telemetry with ActorLogging with ConfigProvider /*with SwarmDiscovery*/ {
 
   val cluster = Cluster(context.system)
 
@@ -46,8 +46,8 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents,
       classOf[MemberEvent], classOf[UnreachableMember])
 
-    //context.actorOf(Props[TcpPingResponder], "ping-responder")
-    //new TcpPingResponderFlow()(context.system).start()
+  //  context.actorOf(Props[TcpPingResponder], "ping-responder")
+  //  new TcpPingResponderFlow()(context.system).start()
 
     new TcpPingResponderNio().start()
     println("ping responder started")
@@ -57,7 +57,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
   import context.dispatcher
 
-  discoverAndJoin()
+  //discoverAndJoin()
 
   context.system.scheduler.schedule(1 second, 1 second, self, Tick)
 
