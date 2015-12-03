@@ -24,8 +24,9 @@ case class TelemetryWriter(dal: MongoMetricsDAL) extends Thread {
 
   @tailrec
   override final def run() = {
-    val tele = telemetryObject(hosts(rnd.nextInt(hlen)), rnd.nextDouble()*100, rnd.nextDouble()*100, "eth0", rnd.nextInt(100000), rnd.nextInt(100000))
-    val lat = new RichPing(System.currentTimeMillis(), hosts(rnd.nextInt(hlen)), hosts(rnd.nextInt(hlen)), 0, 0, rnd.nextInt(3000)).toJs
+    val tele = telemetryObject(hosts(rnd.nextInt(hlen)), rnd.nextDouble() * 100, rnd.nextDouble(), "eth0", rnd.nextInt(100000), rnd.nextInt(100000))
+    val (from, to) = getHosts()
+    val lat = new RichPing(System.currentTimeMillis(), from, to, 0, 0, rnd.nextInt(3000)).toJs
     dal.saveTelemetry(tele)
     dal.saveLatency(lat)
 
@@ -33,6 +34,15 @@ case class TelemetryWriter(dal: MongoMetricsDAL) extends Thread {
     println(s"saved latency: $lat")
     Thread.sleep(1000)
     run()
+  }
+
+  def getHosts(): (String, String) = {
+    val from = hosts(rnd.nextInt(hlen))
+    var to = hosts(rnd.nextInt(hlen))
+    while ( to == from ) {
+      to = hosts(rnd.nextInt(hlen))
+    }
+    (from, to)
   }
 
   def telemetryObject(host: String, memory: Double, cpu: Double, netIntName: String, rxBytes: Long, txBytes: Long) = {

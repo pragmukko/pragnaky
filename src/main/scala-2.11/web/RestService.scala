@@ -14,7 +14,6 @@ import http.CorsSupport
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.bson.{BSONArray, BSONString, BSONDocument}
 import akka.http.scaladsl.model.StatusCodes._
-import reactivemongo.core.commands.{Last, Group}
 import spray.json._
 import utils.ConfigProvider
 import reactivemongo.api.commands._
@@ -65,7 +64,18 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
                   Group
                 }
                 val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))()
-                knownDbs("latency").aggregate(group).map(_.documents)
+                col.aggregate(group).map(_.documents)
+              }
+            }
+          } ~ path("nodes") {
+            get {
+              complete {
+                val col:BSONCollection = knownDbs("telemetry")
+                import col.BatchCommands.AggregationFramework.{
+                  Group, Max
+                }
+                val group = Group(BSONDocument("addr" -> "$addr"))("last" -> Max("timestamp"))
+                col.aggregate(group).map(_.documents)
               }
             }
           }

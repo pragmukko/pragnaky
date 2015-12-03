@@ -1,10 +1,10 @@
 function updateData(nodesCallback, edgesCallback) {
     
-    $.getJSON("http://localhost:9000/db/nodes?q=%7B%7D", function(nodes) {
+    $.getJSON("http://localhost:9000/nodes", function(nodes) {
         nodesCallback(nodes.map(function(item){
             return {
-                id: item.addr,
-                label: item.addr
+                id: item._id.addr,
+                label: item._id.addr
             }
         }));
         
@@ -64,9 +64,10 @@ function addItem(data, dataSet) {
 }
 
 function LatencyVisualizer(from, to) {
+    $('#latency_viz').show();
     var latencyContainer = $('#latency_viz')[0];
     var latencyDataset = new vis.DataSet();
-    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, {height: "300px"});
+    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, {height: "300px", width: "100%"});
     
     var query = encodeURI(JSON.stringify({ source: from, dest: to }));
     var sort = encodeURI(JSON.stringify({ time: -1 }));
@@ -79,12 +80,20 @@ function LatencyVisualizer(from, to) {
         $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
             var ltn = data.map(function(item) { 
                return {
-                   x: new Date(item.time),
+                   x: item.time,
                    y: item.pingTotal
                }
             }).reverse();
-            latencyDataset.clear();
-            latencyDataset.add(ltn);
+            var min = ltn[0].x;
+            var max = latencyDataset.max('x');
+            var old = latencyDataset.getIds({
+                filter: function(it) {
+                    return it.x < min;
+                }
+            });
+            latencyDataset.remove(old);
+            
+            latencyDataset.add(ltn.filter(function(item){ return item.x > max; }));
         });
         
         setTimeout( plot, 1000 );
@@ -96,6 +105,7 @@ function LatencyVisualizer(from, to) {
     this.stop = function() {
         isRunning = false;
         graph2d.destroy();
+        $('#latency_viz').hide();
     }
     
 }
@@ -112,7 +122,11 @@ $(function() {
         nodes: nodes,
         edges: edges
     };
-    var options = {};
+    var options = {
+        edges: {
+            smooth: false
+        }
+    };
     var network = new vis.Network(container, data, options);
         
     var cpu_ctx = $("#cpu_cnv")[0].getContext("2d");
@@ -140,15 +154,19 @@ $(function() {
             latencyVisualizer.stop();
             latencyVisualizer = undefined;
         }
-        if ( !!e.edges && e.edges.length > 0 ) {
+        $('#telemetry_snapshot').hide();
+        if ( !!e.edges && e.edges.length > 0 && !e.nodes.length ) {
             var edgeId = e.edges[0];
             var edge = edges.get(edgeId);
             latencyVisualizer = new LatencyVisualizer(edge.from, edge.to);
         }
-        var nodeId = e.nodes[0];
-        var node = nodes.get(nodeId);
-        glSelectedNode = node.label;
-        updateTelemetry(cpuChart, node.label);
+        if (e.nodes.length > 0) { 
+            $('#telemetry_snapshot').show();
+            var nodeId = e.nodes[0];
+            var node = nodes.get(nodeId);
+            glSelectedNode = node.label;
+            updateTelemetry(cpuChart, node.label);
+        }
     });
     
     setInterval(function() { updateTelemetry(cpuChart, memChart, glSelectedNode) }, 1000);
