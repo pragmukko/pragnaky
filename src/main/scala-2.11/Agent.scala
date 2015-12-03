@@ -69,7 +69,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
       println(s"member $member is Up")
       if (member.address != cluster.selfAddress) {
         println(s"creating pinger for $member [$self]")
-        val address = member.address.host.map(InetAddress.getByName(_)).getOrElse(NetUtils.localHost)
+        val address = member.address.host.map(InetAddress.getByName).getOrElse(NetUtils.localHost)
 
         //context.actorOf(Props(classOf[TcpPinger], address), s"pinger-for-${address.getHostAddress}") ! Start
         //new TcpPingerFlow(address.getHostAddress, self)(context.system).start()
