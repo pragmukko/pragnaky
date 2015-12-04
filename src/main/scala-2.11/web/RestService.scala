@@ -72,10 +72,11 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
               complete {
                 val col:BSONCollection = knownDbs("telemetry")
                 import col.BatchCommands.AggregationFramework.{
-                  Group, Max
+                  Sort, Group, Last, Ascending
                 }
-                val group = Group(BSONDocument("addr" -> "$addr"))("last" -> Max("timestamp"))
-                col.aggregate(group).map(_.documents)
+                val sort = Sort(Ascending("timestamp"))
+                val group = Group(BSONDocument("addr" -> "$addr"))("last" -> Last("timestamp"), "cpu" -> Last("cpu"))
+                col.aggregate(sort, List(group)).map(_.documents)
               }
             }
           }
