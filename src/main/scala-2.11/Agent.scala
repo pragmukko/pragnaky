@@ -24,7 +24,7 @@ object Agent extends App {
 
 }
 
-case object Tick
+case object PingTick
 
 case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingFrom: Int, pingTotal: Int) {
   def toJs = JsObject (
@@ -85,7 +85,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     case Unsubscribe(listener) =>
       listeners -= listener
 
-    case Tick =>
+    case PingTick =>
       listeners foreach sendTelemetry
       cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).foreach{addr =>pinger.ping(addr)}
 
