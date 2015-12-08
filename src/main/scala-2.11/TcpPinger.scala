@@ -1,6 +1,6 @@
 import java.net.{SocketAddress, SocketOption, InetAddress, InetSocketAddress}
 import java.nio.ByteBuffer
-import java.nio.channels.{AsynchronousChannelGroup, CompletionHandler, AsynchronousSocketChannel, AsynchronousServerSocketChannel}
+import java.nio.channels._
 import java.util
 import java.util.concurrent
 
@@ -203,9 +203,55 @@ class TcpPingResponderNio extends ConfigProvider with PingNio {
 
 }
 
+class TcpPingResponderNioSync extends Thread with ConfigProvider {
+  this.setDaemon(true)
+  val serverSocketChannel = ServerSocketChannel.open()
+
+  serverSocketChannel.socket().bind(new InetSocketAddress(config.getInt("pinger.port")))
+
+  val buf = ByteBuffer.allocate(32)
+
+  @tailrec
+  override final def run(): Unit = {
+    val socketChannel = serverSocketChannel.accept();
+    val bytesRead = socketChannel.read(buf)
+    buf.flip()
+    if (bytesRead >= 9 && buf.get() == '>'.toByte) {
+      val start = buf.getLong
+      buf.clear()
+      buf.put('<'.toByte).putLong(start).putLong(System.currentTimeMillis())
+      buf.flip()
+      socketChannel.write(buf)
+      buf.clear()
+    }
+    run()
+  }
+
+}
+
+class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with PingNio {
+
+  def ping(host: InetAddress) = {
+    val buf = ByteBuffer.allocate(32)
+    val channel = SocketChannel.open(new InetSocketAddress(host, config.getInt("pinger.port")))
+    buf.put('>'.toByte).putLong(System.currentTimeMillis()).flip()
+    channel.write(buf)
+    buf.clear()
+    var bytesRead = 0
+    while ({bytesRead += channel.read(buf); bytesRead} < 17 ){}
+
+    buf.flip()
+    if (bytesRead >= 17 && buf.get() == '<'.toByte) {
+      replyTo ! readPing(buf, host)
+    }
+    buf.clear()
+    channel.close()
+  }
+}
+
 class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with PingNio {
   import scala.concurrent.ExecutionContext.Implicits.global
-  // new InetSocketAddress(host, config.getInt("pinger.port")
+
   def ping(host: InetAddress) = {
     val channel = AsynchronousSocketChannel.open()
     val request = ByteString(ByteBuffer.allocate(9).put('>'.toByte).putLong(System.currentTimeMillis()).array())
@@ -216,14 +262,7 @@ class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with PingNio {
       ping = readPing(readBytes, host)
     } {replyTo ! ping}
   }
-  private def readPing(bb: ByteBuffer, host: InetAddress): RichPing = {
-    //println(s"response!: __")
-    //val dataBB = bs.tail.asByteBuffer
-    val sentTs = bb.getLong
-    val replyTs = bb.getLong
-    val nowTs = System.currentTimeMillis()
-    RichPing(nowTs, NetUtils.localHost.getHostAddress, host.getHostAddress, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
-  }
+
 }
 
 trait PingNio {
@@ -273,5 +312,12 @@ trait PingNio {
       else write(bs.drop(numBytesWritten), sock)
     }
   }
-
+  protected def readPing(bb: ByteBuffer, host: InetAddress): RichPing = {
+    //println(s"response!: __")
+    //val dataBB = bs.tail.asByteBuffer
+    val sentTs = bb.getLong
+    val replyTs = bb.getLong
+    val nowTs = System.currentTimeMillis()
+    RichPing(nowTs, NetUtils.localHost.getHostAddress, host.getHostAddress, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
+  }
 }

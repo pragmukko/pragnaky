@@ -49,7 +49,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
   //  context.actorOf(Props[TcpPingResponder], "ping-responder")
   //  new TcpPingResponderFlow()(context.system).start()
 
-    new TcpPingResponderNio().start()
+    new TcpPingResponderNioSync().start()
     println("ping responder started")
   }
 
@@ -59,9 +59,9 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
   //discoverAndJoin()
 
-  context.system.scheduler.schedule(1 second, 1 second, self, Tick)
+  context.system.scheduler.schedule(1 second, 1 second, self, PingTick)
 
-  val pinger = new TcpPingerNio(self)
+  val pinger = new TcpPingerNioSync(self)
 
   override def receive : Receive = {
 

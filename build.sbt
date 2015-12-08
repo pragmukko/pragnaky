@@ -13,6 +13,8 @@ resolvers ++= Seq(
   Resolver.bintrayRepo("hseeberger", "maven")
 )
 
+mainClass in assembly := Some("Agent")
+
 libraryDependencies ++= {
   Seq(
     "org.eclipse.paho"   %   "org.eclipse.paho.client.mqttv3"     % "1.0.3-SNAPSHOT",
