@@ -208,19 +208,23 @@ class TcpPingResponderNioSync extends Thread with ConfigProvider {
   val serverSocketChannel = ServerSocketChannel.open()
 
   serverSocketChannel.socket().bind(new InetSocketAddress(config.getInt("pinger.port")))
+  val pongPayloadSize = config.getInt("pinger.pong-payload")
+  val pingPayloadSize = config.getInt("pinger.ping-payload")
 
-  val buf = ByteBuffer.allocate(32)
+  val buf = ByteBuffer.allocateDirect(Math.max(pongPayloadSize, pingPayloadSize) + 17)
 
   @tailrec
   override final def run(): Unit = {
-    val socketChannel = serverSocketChannel.accept();
-    val bytesRead = socketChannel.read(buf)
+    val socketChannel = serverSocketChannel.accept()
+    var bytesRead = 0
+    while ({bytesRead += socketChannel.read(buf); bytesRead} < 9 + pingPayloadSize ){}
+    //val bytesRead = socketChannel.read(buf)
+    println(s"S:ping read: $bytesRead")
     buf.flip()
     if (bytesRead >= 9 && buf.get() == '>'.toByte) {
       val start = buf.getLong
       buf.clear()
-      buf.put('<'.toByte).putLong(start).putLong(System.currentTimeMillis())
-      buf.flip()
+      buf.put('<'.toByte).putLong(start).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pongPayloadSize)).flip()
       socketChannel.write(buf)
       buf.clear()
     }
@@ -231,15 +235,19 @@ class TcpPingResponderNioSync extends Thread with ConfigProvider {
 
 class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with PingNio {
 
+  val pongPayloadSize = config.getInt("pinger.pong-payload")
+  val pingPayloadSize = config.getInt("pinger.ping-payload")
+
   def ping(host: InetAddress) = {
-    val buf = ByteBuffer.allocate(32)
+    val buf = ByteBuffer.allocate(Math.max(pongPayloadSize, pingPayloadSize) + 17)
     val channel = SocketChannel.open(new InetSocketAddress(host, config.getInt("pinger.port")))
-    buf.put('>'.toByte).putLong(System.currentTimeMillis()).flip()
+    buf.put('>'.toByte).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pingPayloadSize)).flip()
     channel.write(buf)
     buf.clear()
     var bytesRead = 0
-    while ({bytesRead += channel.read(buf); bytesRead} < 17 ){}
+    while ({bytesRead += channel.read(buf); bytesRead} < 17 + pongPayloadSize ){}
 
+    println(s"C:pong read: $bytesRead")
     buf.flip()
     if (bytesRead >= 17 && buf.get() == '<'.toByte) {
       replyTo ! readPing(buf, host)
