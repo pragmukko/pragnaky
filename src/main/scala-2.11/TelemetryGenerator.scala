@@ -34,7 +34,7 @@ case class TelemetryWriter(dal: MongoMetricsDAL) extends Thread {
 
    // println(s"saved telemetry: $tele")
    // println(s"saved latency: $lat")
-    Thread.sleep(500)
+    Thread.sleep(100)
     run()
   }
 

@@ -7,6 +7,7 @@ import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, HttpHeader}
 import akka.http.scaladsl.model.headers.{`Access-Control-Allow-Credentials`, `Access-Control-Max-Age`, `Access-Control-Allow-Headers`}
 import akka.http.scaladsl.server.Directives
+import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
 import db.mongo.{Mongo2Spray, MongoMetricsDAL}
@@ -80,9 +81,13 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
                 col.aggregate(sort, List(group)).map(_.documents)
               }
             }
-          }
+          } ~ path("") {
+                get {
+                  getFromResource(s"www/index.html")
+              }
+            } ~
+              getFromResourceDirectory("www")
       }
-
 
   }
 

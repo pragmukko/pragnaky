@@ -15,6 +15,13 @@
             font-size: 12px;
             line-height: 0.8;
         }
+        .viz_holder {
+            margin-left: 2em;
+            margin-right: 2em;
+        }
+        .heatmap_container {
+            margin: 2em;
+        }
     </style>
     
 </head>
@@ -22,11 +29,22 @@
 <body>
     
     <div class="row">
-        <div id="heatmap"></div>
+        <div>
+            <div>
+                <h3>Connectivity matrix</h3>
+            </div>
+            <div class="panel">
+                <div class="panel-body">
+                    <div id="heatmap"></div>
+                </div>
+            </div>
+        </div>
         <div class="col-md-4">
         </div>
         <div class="col-md-8">
-            <div id="latency_viz"></div>
+            <div class="viz_holder">
+                <div id="latency_viz"></div>
+            </div>
         </div>
     </div>
     
@@ -62,26 +80,6 @@ function updateData(callback) {
 };
 
 function toId(v) { return v.replace(/\./g, "_"); }    
-/*        
-function renderSnapshot(nodes) {
-    var el = $("#connectivity");
-    el.empty();
-    var html = "<thead><tr><th></th>";
-    for (var i = 0; i < nodes.length; i++) {
-        html += "<th  class='rotate-45'><div><span>" + nodes[i] + "</span></div></th>";
-    }
-    html += "</tr></thead>";
-    html += "<tbody>";
-    for (var y = 0; y < nodes.length; y++) {
-        html += "<tr id=" + toId(nodes[y]) + "><th class='row-header'>" + nodes[y] + "</th>";
-        for (var x = 0; x < nodes.length; x++) {
-            html += "<td width='20px' height='20px'></td>";
-        }
-        html += "</tr>";
-    }
-    html += "</tbody>";
-    el.html(html);
-} */
     
 function reduceEdges(acc, item) {
     var key = item.from + "_" + item.to;
@@ -111,7 +109,12 @@ function updateMatrixLoop(oldNodes) {
                 x: sortedNodes,
                 y: sortedNodes,
                 z: zValues,
-                type: 'heatmap'
+                type: 'heatmap',
+                colorbar: {
+                    bgcolor: "#fffff",
+                    xpad: 10,
+                    x: 1
+                }
             }];
             var axisTemplate = {
                 showgrid: false,
@@ -121,8 +124,17 @@ function updateMatrixLoop(oldNodes) {
             };
             var layout = {
                 showlegend: false,
+                height: 300,
                 xaxis: axisTemplate,
-                yaxis: axisTemplate
+                yaxis: axisTemplate,
+                paper_bgcolor: "ff0000",
+                plot_bgcolor: "00ff00",
+                margin: {
+                    t: 0,
+                    b: 0,
+                    r: 0,
+                    l: 0
+                }
                 
             };
             Plotly.newPlot('heatmap', data, layout);
@@ -142,7 +154,13 @@ function LatencyVisualizer(from, to) {
     $('#latency_viz').show();
     var latencyContainer = $('#latency_viz')[0];
     var latencyDataset = new vis.DataSet();
-    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, {height: "300px", width: "100%", interpolation: false});
+    var option = {
+        height: "300px",
+        width: "100%", 
+        interpolation: false,
+        drawPoints: false
+    };
+    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, option);
     
     var query = encodeURI(JSON.stringify({ source: from, dest: to }));
     var sort = encodeURI(JSON.stringify({ time: -1 }));
