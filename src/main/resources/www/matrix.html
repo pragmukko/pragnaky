@@ -1,0 +1,216 @@
+<html>
+    
+<head>
+    <script src="jquery.js"></script>
+    <script src="ploty/ploty.js"></script>
+    <script src="bootstrap.js"></script>
+    <script src="vis/vis.js"></script>
+    
+    <link href="bootstrap.css" rel="stylesheet" type="text/css" />
+    <link href="style.css" rel="stylesheet" type="text/css" /> 
+    <link href="vis/vis.css" rel="stylesheet" type="text/css" />
+    
+    <style>
+        .row-header {
+            font-size: 12px;
+            line-height: 0.8;
+        }
+    </style>
+    
+</head>
+    
+<body>
+    
+    <div class="row">
+        <div id="heatmap"></div>
+        <div class="col-md-4">
+        </div>
+        <div class="col-md-8">
+            <div id="latency_viz"></div>
+        </div>
+    </div>
+    
+    <!--<table border="0" id='connectivity' class="table-header-rotated">
+    </table>-->
+    
+</body>
+    
+<script>
+
+function updateData(callback) {  
+    $.getJSON("http://localhost:9000/nodes", function(nodes) {
+        var nodesArr = nodes.map(function(item){ return item._id.addr; });
+        
+        $.getJSON("http://localhost:9000/edges", function(edges) {
+            var edgesArr = edges.map( function(item) {
+                return {
+                    from: item._id.source,
+                    to: item._id.dest,
+                    value: item.last,
+                    ts: item.timestamp
+                }
+            } );
+            
+            callback(nodesArr, edgesArr);
+            
+        } );
+        
+    }).fail(function( jqxhr, textStatus, error ) {
+        var err = textStatus + ", " + error;
+        console.log( "Request Failed: " + err );
+    });
+};
+
+function toId(v) { return v.replace(/\./g, "_"); }    
+/*        
+function renderSnapshot(nodes) {
+    var el = $("#connectivity");
+    el.empty();
+    var html = "<thead><tr><th></th>";
+    for (var i = 0; i < nodes.length; i++) {
+        html += "<th  class='rotate-45'><div><span>" + nodes[i] + "</span></div></th>";
+    }
+    html += "</tr></thead>";
+    html += "<tbody>";
+    for (var y = 0; y < nodes.length; y++) {
+        html += "<tr id=" + toId(nodes[y]) + "><th class='row-header'>" + nodes[y] + "</th>";
+        for (var x = 0; x < nodes.length; x++) {
+            html += "<td width='20px' height='20px'></td>";
+        }
+        html += "</tr>";
+    }
+    html += "</tbody>";
+    el.html(html);
+} */
+    
+function reduceEdges(acc, item) {
+    var key = item.from + "_" + item.to;
+    acc[key] = item.value;
+    return acc;
+}
+    
+function updateMatrixLoop(oldNodes) {
+    updateData(function(nodes, edges) {
+        
+        var sortedNodes = nodes.sort();
+        
+        var edgesMap = edges.reduce(reduceEdges, {});
+        var zValues = [];
+        for (var y = 0; y < sortedNodes.length; y ++) {
+            var line = [];
+            for (var x = 0; x < sortedNodes.length; x ++) {
+                var key = nodes[x] + "_" + nodes[y];
+                line.push( edgesMap[key] || 0 );
+            }
+            zValues.push(line);
+        }
+                
+        var nodesRepr = sortedNodes.toString();
+        if (oldNodes !== nodesRepr) {
+            var data = [{
+                x: sortedNodes,
+                y: sortedNodes,
+                z: zValues,
+                type: 'heatmap'
+            }];
+            var axisTemplate = {
+                showgrid: false,
+                showticklabels: false,
+                zeroline: false,
+                ticks: ''
+            };
+            var layout = {
+                showlegend: false,
+                xaxis: axisTemplate,
+                yaxis: axisTemplate
+                
+            };
+            Plotly.newPlot('heatmap', data, layout);
+        } else {
+            var update = {
+                z: [zValues]
+            }
+            Plotly.restyle('heatmap', update, [0]);
+        }
+            
+            
+        setTimeout(function() { updateMatrixLoop(nodesRepr); }, 1000); 
+    });
+}   
+
+function LatencyVisualizer(from, to) {
+    $('#latency_viz').show();
+    var latencyContainer = $('#latency_viz')[0];
+    var latencyDataset = new vis.DataSet();
+    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, {height: "300px", width: "100%", interpolation: false});
+    
+    var query = encodeURI(JSON.stringify({ source: from, dest: to }));
+    var sort = encodeURI(JSON.stringify({ time: -1 }));
+    var isRunning = true;
+    var lastRecord = 0;
+    
+    function plot() {
+        if (!isRunning) {
+            return;
+        }
+        $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
+            var ltn = data.map(function(item) { 
+               return {
+                   x: item.time,
+                   y: item.pingTotal
+               }
+            }).reverse();
+            
+            if (ltn.length == 0)
+                return;
+            
+            if (ltn[ltn.length - 1].x <= lastRecord)
+                return;
+            
+            lastRecord = ltn[ltn.length - 1].x;
+            
+            var min = ltn[0].x;
+            var max = latencyDataset.max('x');
+            max = max == null ? 0 : max.x;
+            var old = latencyDataset.getIds({
+                filter: function(it) {
+                    return it.x < min;
+                }
+            });
+            latencyDataset.remove(old);
+            
+            graph2d.setWindow(min, ltn[ltn.length - 1].x);
+            
+            latencyDataset.add(ltn.filter(function(item){ return item.x > max; }));
+        });
+        
+        setTimeout( plot, 1000 );
+        
+    }
+    
+    plot();
+    
+    this.stop = function() {
+        isRunning = false;
+        graph2d.destroy();
+        $('#latency_viz').hide();
+    }
+    
+}
+            
+$(function() {
+    var pingViz;
+    $('#heatmap').on('plotly_click', function(ev, data){
+        if ( !!pingViz ) {
+            pingViz.stop();
+        }
+        pingViz = new LatencyVisualizer(data.points[0].x, data.points[0].y);
+    });
+    updateMatrixLoop();    
+});    
+    
+</script>
+    
+    
+    
+</html>

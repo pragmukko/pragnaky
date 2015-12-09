@@ -17,7 +17,9 @@ object TelemetryGenerator extends App with MongoMetricsDAL{
 }
 
 case class TelemetryWriter(dal: MongoMetricsDAL) extends Thread {
-  val hosts = List("10.0.1.10", "10.0.1.13", "10.0.1.15", "10.0.1.25")
+  //val hosts = List("10.0.1.10", "10.0.1.13", "10.0.1.15", "10.0.1.25")
+  val hosts = (1 to 40) map( "10.0.1." + _ )
+  val slow = List("10.0.1.5", "10.0.1.17")
   val hlen = hosts.length
   val rnd = SecureRandom.getInstanceStrong
   rnd.setSeed(System.currentTimeMillis())
@@ -26,14 +28,21 @@ case class TelemetryWriter(dal: MongoMetricsDAL) extends Thread {
   override final def run() = {
     val tele = telemetryObject(hosts(rnd.nextInt(hlen)), rnd.nextDouble() * 100, rnd.nextDouble(), "eth0", rnd.nextInt(100000), rnd.nextInt(100000))
     val (from, to) = getHosts()
-    val lat = new RichPing(System.currentTimeMillis(), from, to, 0, 0, rnd.nextInt(3000)).toJs
+    val lat = new RichPing(System.currentTimeMillis(), from, to, 0, 0, /*rnd.nextInt(5000)*/getLatency(from, to)).toJs
     dal.saveTelemetry(tele)
     dal.saveLatency(lat)
 
-    println(s"saved telemetry: $tele")
-    println(s"saved latency: $lat")
-    Thread.sleep(1000)
+   // println(s"saved telemetry: $tele")
+   // println(s"saved latency: $lat")
+    Thread.sleep(500)
     run()
+  }
+
+  def getLatency(h:String*) = {
+    if (h.exists(slow.contains))
+      rnd.nextInt(5000)
+    else
+      rnd.nextInt(1000)
   }
 
   def getHosts(): (String, String) = {

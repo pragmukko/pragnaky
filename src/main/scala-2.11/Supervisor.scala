@@ -53,7 +53,7 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
         telemetry.map( t => JsObject(
           t.fields +
             ("addr" -> JsString(host)) +
-            ("timwstamp" -> JsNumber(new Date().getTime()))
+            ("timestamp" -> JsNumber(new Date().getTime()))
         ))
     } foreach saveTelemetry
   }
