@@ -3,6 +3,7 @@ package util
 import java.util.Date
 
 import org.hyperic.sigar.{CpuTimer, Sigar}
+import kamon.sigar.SigarProvisioner
 import spray.json.{JsArray, JsString, JsNumber, JsObject}
 import scala.collection.JavaConversions._
 import scala.util.Try
@@ -13,7 +14,11 @@ import scala.util.Try
 trait Telemetry {
 
 
-  val sigar = new Sigar()
+  lazy val sigar = {
+    SigarProvisioner.provision()
+    println(s"sigar is provisioned: ${SigarProvisioner.isNativeLoaded}")
+    new Sigar()
+  }
 
   def nodeTelemetry = Try {
     val mem = sigar.getMem()

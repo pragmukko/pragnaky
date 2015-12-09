@@ -24,7 +24,7 @@ object Agent extends App {
 
 }
 
-case object Tick
+case object PingTick
 
 case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingFrom: Int, pingTotal: Int) {
   def toJs = JsObject (
@@ -49,7 +49,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
   //  context.actorOf(Props[TcpPingResponder], "ping-responder")
   //  new TcpPingResponderFlow()(context.system).start()
 
-    new TcpPingResponderNio().start()
+    new TcpPingResponderNioSync().start()
     println("ping responder started")
   }
 
@@ -59,9 +59,9 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
   //discoverAndJoin()
 
-  context.system.scheduler.schedule(1 second, 1 second, self, Tick)
+  context.system.scheduler.schedule(1 second, 1 second, self, PingTick)
 
-  val pinger = new TcpPingerNio(self)
+  val pinger = new TcpPingerNioSync(self)
 
   override def receive : Receive = {
 
@@ -85,7 +85,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     case Unsubscribe(listener) =>
       listeners -= listener
 
-    case Tick =>
+    case PingTick =>
       listeners foreach sendTelemetry
       cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).foreach{addr =>pinger.ping(addr)}
 
