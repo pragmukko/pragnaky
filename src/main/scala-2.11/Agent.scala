@@ -26,6 +26,8 @@ object Agent extends App {
 
 case class PingTick(hosts:List[InetAddress])
 
+case class PingHost(host: InetAddress)
+
 case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingFrom: Int, pingTotal: Int) {
   def toJs = JsObject (
     Map(
@@ -81,7 +83,10 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
     case PingTick(hosts) =>
       listeners foreach sendTelemetry
-      pingNextKnownHost(hosts)
+      //pingNextKnownHost(hosts)
+      cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).foreach(self ! PingHost(_))
+
+    case PingHost(host) => pinger.ping(host)
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
