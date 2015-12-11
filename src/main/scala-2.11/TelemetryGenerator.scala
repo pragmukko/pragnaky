@@ -1,38 +1,44 @@
 import java.security.SecureRandom
+import java.util.concurrent.{Executors, ExecutorService}
 
 import db.mongo.MongoMetricsDAL
 import spray.json._
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
+import scala.util.Random
 
 /**
  * Created by yishchuk on 03.12.2015.
  */
-object TelemetryGenerator extends App with MongoMetricsDAL{
-  implicit val executionContext = ExecutionContext.Implicits.global
-  
-  new TelemetryWriter(this).start()
+object TelemetryGenerator extends App{
+
+
+  println("Start working")
+  new TelemetryWriter().run()//.start()
   
 }
 
-case class TelemetryWriter(dal: MongoMetricsDAL) extends Thread {
+class TelemetryWriter extends MongoMetricsDAL{
+
+  implicit val executionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
+
   //val hosts = List("10.0.1.10", "10.0.1.13", "10.0.1.15", "10.0.1.25")
-  val hosts = (1 to 40) map( "10.0.1." + _ )
+  val hosts = (1 to 50) map( "10.0.1." + _ )
   val slow = List("10.0.1.5", "10.0.1.17")
   val hlen = hosts.length
-  val rnd = SecureRandom.getInstanceStrong
-  rnd.setSeed(System.currentTimeMillis())
+  val rnd = Random
 
   @tailrec
-  override final def run() = {
+  final def run() : Unit = {
     val tele = telemetryObject(hosts(rnd.nextInt(hlen)), rnd.nextDouble() * 100, rnd.nextDouble(), "eth0", rnd.nextInt(100000), rnd.nextInt(100000))
     val (from, to) = getHosts()
     val lat = new RichPing(System.currentTimeMillis(), from, to, 0, 0, /*rnd.nextInt(5000)*/getLatency(from, to)).toJs
-    dal.saveTelemetry(tele)
-    dal.saveLatency(lat)
 
-   // println(s"saved telemetry: $tele")
+    telemetry.insert(tele)
+    latency.insert(lat)
+
+    //println(s"saved telemetry: $tele")
    // println(s"saved latency: $lat")
     Thread.sleep(100)
     run()

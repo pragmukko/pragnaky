@@ -46,10 +46,8 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
   }
 
   def persistTelemetry(addr:ActorRef, telemetry:Array[JsObject]) = {
-    println("Try to persists telemetry " + telemetry)
-    addr.path.address.host.toList flatMap  {
+    addr.path.address.host.toList flatMap {
       host =>
-        println("Try to persists telemetry from host " + host)
         telemetry.map( t => JsObject(
           t.fields +
             ("addr" -> JsString(host)) +

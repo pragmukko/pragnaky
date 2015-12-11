@@ -24,7 +24,7 @@ object Agent extends App {
 
 }
 
-case object PingTick
+case class PingTick(hosts:List[InetAddress])
 
 case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingFrom: Int, pingTotal: Int) {
   def toJs = JsObject (
@@ -46,9 +46,6 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents,
       classOf[MemberEvent], classOf[UnreachableMember])
 
-  //  context.actorOf(Props[TcpPingResponder], "ping-responder")
-  //  new TcpPingResponderFlow()(context.system).start()
-
     new TcpPingResponderNioSync().start()
     println("ping responder started")
   }
@@ -59,22 +56,19 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
   //discoverAndJoin()
 
-  context.system.scheduler.schedule(1 second, 1 second, self, PingTick)
+  context.system.scheduler.schedule(1 second, 1 second, self, PingTick(Nil))
 
   val pinger = new TcpPingerNioSync(self)
 
   override def receive : Receive = {
 
+    /*
     case MemberUp(member) =>
       println(s"member $member is Up")
       if (member.address != cluster.selfAddress) {
         println(s"creating pinger for $member [$self]")
         val address = member.address.host.map(InetAddress.getByName).getOrElse(NetUtils.localHost)
-
-        //context.actorOf(Props(classOf[TcpPinger], address), s"pinger-for-${address.getHostAddress}") ! Start
-        //new TcpPingerFlow(address.getHostAddress, self)(context.system).start()
-
-      }
+      }*/
 
     case Subscribe(listener) =>
       listener ! DevDiscover
@@ -85,15 +79,27 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     case Unsubscribe(listener) =>
       listeners -= listener
 
-    case PingTick =>
+    case PingTick(hosts) =>
       listeners foreach sendTelemetry
-      cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).foreach{addr =>pinger.ping(addr)}
+      pingNextKnownHost(hosts)
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
       //listeners foreach (_ ! Array(rp.toJs))
       listeners foreach (_ ! rp )
 
+  }
+
+  def pingNextKnownHost(hosts:List[InetAddress]) = {
+    val other = hosts match {
+      case head :: rest =>
+        pinger.ping(head)
+        rest
+
+      case Nil =>
+        cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).toList
+    }
+    context.system.scheduler.schedule(1 second, 1 second, self, PingTick(other))
   }
 
   def sendTelemetry(dst:ActorRef) = {

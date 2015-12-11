@@ -5,6 +5,7 @@
     <script src="ploty/ploty.js"></script>
     <script src="bootstrap.js"></script>
     <script src="vis/vis.js"></script>
+    <script src="chart/Chart.js"></script>
     
     <link href="bootstrap.css" rel="stylesheet" type="text/css" />
     <link href="style.css" rel="stylesheet" type="text/css" /> 
@@ -43,7 +44,8 @@
         </div>
         <div class="col-md-8">
             <div class="viz_holder">
-                <div id="latency_viz"></div>
+                <!--<div id="latency_viz"></div> -->
+                <canvas id="latency_viz" height="300" width="600"></canvas>
             </div>
         </div>
     </div>
@@ -54,12 +56,20 @@
 </body>
     
 <script>
+    
+function authority() {
+    var url = window.location.href;
+    if (url.startsWith("file")) {
+        return "http://localhost:9000"
+    } 
+    return ""
+}    
 
 function updateData(callback) {  
-    $.getJSON("http://localhost:9000/nodes", function(nodes) {
+    $.getJSON(authority() + "/nodes", function(nodes) {
         var nodesArr = nodes.map(function(item){ return item._id.addr; });
         
-        $.getJSON("http://localhost:9000/edges", function(edges) {
+        $.getJSON(authority() + "/edges", function(edges) {
             var edgesArr = edges.map( function(item) {
                 return {
                     from: item._id.source,
@@ -127,8 +137,6 @@ function updateMatrixLoop(oldNodes) {
                 height: 300,
                 xaxis: axisTemplate,
                 yaxis: axisTemplate,
-                paper_bgcolor: "ff0000",
-                plot_bgcolor: "00ff00",
                 margin: {
                     t: 0,
                     b: 0,
@@ -152,7 +160,7 @@ function updateMatrixLoop(oldNodes) {
 
 function LatencyVisualizer(from, to) {
     $('#latency_viz').show();
-    var latencyContainer = $('#latency_viz')[0];
+   /* var latencyContainer = $('#latency_viz')[0];
     var latencyDataset = new vis.DataSet();
     var option = {
         height: "300px",
@@ -160,7 +168,7 @@ function LatencyVisualizer(from, to) {
         interpolation: false,
         drawPoints: false
     };
-    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, option);
+    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, option);*/
     
     var query = encodeURI(JSON.stringify({ source: from, dest: to }));
     var sort = encodeURI(JSON.stringify({ time: -1 }));
@@ -171,7 +179,7 @@ function LatencyVisualizer(from, to) {
         if (!isRunning) {
             return;
         }
-        $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
+        $.getJSON(authority() + "/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
             var ltn = data.map(function(item) { 
                return {
                    x: item.time,
@@ -187,22 +195,26 @@ function LatencyVisualizer(from, to) {
             
             lastRecord = ltn[ltn.length - 1].x;
             
-            var min = ltn[0].x;
-            var max = latencyDataset.max('x');
-            max = max == null ? 0 : max.x;
-            var old = latencyDataset.getIds({
-                filter: function(it) {
-                    return it.x < min;
+            var data = {
+                labels: ltn.reduce(function(acc, item) { acc.push(item.x); return acc;}, []),
+                datasets: {
+                    label: "My First dataset",
+                    fillColor: "rgba(220,220,220,0.2)",
+                    strokeColor: "rgba(220,220,220,1)",
+                    pointColor: "rgba(220,220,220,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(220,220,220,1)",
+                    data: ltn.reduce(function(acc, item) { acc.push(item.y); return acc;}, []),
                 }
-            });
-            latencyDataset.remove(old);
+            }
             
-            graph2d.setWindow(min, ltn[ltn.length - 1].x);
-            
-            latencyDataset.add(ltn.filter(function(item){ return item.x > max; }));
+            var context = $('#latency_viz')[0].getContext('2d');
+            new Chart(context).Line(data);
+             
         });
         
-        setTimeout( plot, 1000 );
+        setTimeout( plot, 5000 );
         
     }
     
@@ -210,7 +222,7 @@ function LatencyVisualizer(from, to) {
     
     this.stop = function() {
         isRunning = false;
-        graph2d.destroy();
+        //graph2d.destroy();
         $('#latency_viz').hide();
     }
     
