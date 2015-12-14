@@ -5,6 +5,7 @@ import java.nio.channels._
 import java.util
 import java.util.concurrent
 
+import _root_.util.ConfigGenId
 import actors.Messages.Start
 import akka.actor._
 import akka.io.{Tcp, IO}
@@ -23,7 +24,7 @@ import scala.util.{Failure, Success}
 /**
  * Created by yishchuk on 27.11.2015.
  */
-class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ActorLogging {
+class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
   import context.system
   import akka.io.Tcp
   import scala.concurrent.duration._
@@ -75,7 +76,7 @@ class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ActorL
 }
 
 
-class TcpPingResponder extends Actor with ConfigProvider with ActorLogging {
+class TcpPingResponder extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
   import context.system
   import akka.io.Tcp
 
@@ -101,7 +102,7 @@ class TcpPingResponder extends Actor with ConfigProvider with ActorLogging {
   }
 }
 
-class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress, socket: ActorRef) extends Actor with ConfigProvider with ActorLogging {
+class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress, socket: ActorRef) extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
   def receive = {
     case Tcp.Received(data) =>
       if (data.head == '>'.toByte) {
@@ -120,7 +121,7 @@ class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress
   }
 }
 
-class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvider {
+class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvider with ConfigGenId {
   import akka.stream.scaladsl.Tcp
   implicit val materializer = ActorMaterializer()
 
@@ -141,7 +142,7 @@ class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvi
   }
 }
 
-class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends ConfigProvider {
+class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends ConfigProvider with ConfigGenId {
   import akka.stream.scaladsl.Tcp
   import scala.concurrent.duration._
   implicit val materializer = ActorMaterializer()
@@ -172,7 +173,7 @@ class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorS
 
 }
 
-class TcpPingResponderNio extends ConfigProvider with PingNio {
+class TcpPingResponderNio extends ConfigProvider with ConfigGenId with PingNio {
 
   //this.setDaemon(true)
 
@@ -204,7 +205,7 @@ class TcpPingResponderNio extends ConfigProvider with PingNio {
 
 }
 
-class TcpPingResponderNioSync extends Thread with ConfigProvider {
+class TcpPingResponderNioSync extends Thread with ConfigProvider with ConfigGenId {
   this.setDaemon(true)
   val serverSocketChannel = ServerSocketChannel.open()
 
@@ -239,7 +240,7 @@ class TcpPingResponderNioSync extends Thread with ConfigProvider {
 
 }
 
-class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with PingNio {
+class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with ConfigGenId with PingNio {
 
   val pongPayloadSize = config.getInt("pinger.pong-payload")
   val pingPayloadSize = config.getInt("pinger.ping-payload")
@@ -269,7 +270,7 @@ class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with PingNio {
   }
 }
 
-class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with PingNio {
+class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with ConfigGenId with PingNio {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def ping(host: InetAddress) = {
