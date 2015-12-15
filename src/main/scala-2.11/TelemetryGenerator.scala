@@ -24,7 +24,7 @@ class TelemetryWriter extends MongoMetricsDAL{
   implicit val executionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 
   //val hosts = List("10.0.1.10", "10.0.1.13", "10.0.1.15", "10.0.1.25")
-  val hosts = (1 to 50) map( "10.0.1." + _ )
+  val hosts = (1 to 10) map( "10.0.1." + _ )
   val slow = List("10.0.1.5", "10.0.1.17")
   val hlen = hosts.length
   val rnd = Random

@@ -1,0 +1,224 @@
+<htm>
+
+<head>
+    <script src="jquery.js"></script>
+    <script src="heatmap.js"></script>
+    <script src="bootstrap.js"></script>
+    <script src="d3.min.js"></script>
+    <script src="typehead.js"></script>
+    <script src="gm/metricsgraphics.js"></script>
+    <link href="bootstrap.css" rel="stylesheet" type="text/css"></link>
+    <link href="gm/metricsgraphics.css" rel="stylesheet" type="text/css"></link>    
+    <link href="style.css" rel="stylesheet" type="text/css"></link>
+    <style>
+        body {
+            /*font-family: 'Fira Sans', 'sans-serif', 'serif';*/
+        }
+        
+        #canv_holder {
+            clear:both;
+            float:right;
+            width:600px;
+        }
+        #line-chart {
+            position: relative;
+            margin-top: 30px;
+        }
+        .viz-title {
+            color: #666666;
+            font-size: 200%;    
+        }
+        header {
+            padding-left: 50px;
+            border-bottom-color: #f2f2f2;
+            border-bottom-width: 1;
+            border-top-color: #990000;
+            border-top-width: 2;
+            border-bottom-style: solid;
+            border-top-style: solid;
+        }
+        header h3 {
+            font-weight: 100; 
+            font-size: 21px;
+            color: #333333;
+            color: #666666;
+            margin: 10;
+        }
+        .search-box {
+            font-size : 14px;  line-height : 24px;  letter-spacing : 0.49px;
+        }
+        .search-box-holder {
+            font-size: 0;
+            margin: 20px;
+        }
+        .to {
+            padding-left: 10px; 
+        }
+        .from {
+            padding-left: 10px; 
+        }
+        
+    </style>
+</head>
+
+<body>
+    <header>
+        <h3><img style="margin-left: 25px; margin-right: 25px" src="img/Cisco_logo_2006.png" height="60"> <span>Latency Monitoring System</span></h3>
+    </header>
+    <div class="row">
+        <div class="col-md-6">
+            <div id="canv_holder" style="margin: 20px;">
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="search-box-holder">
+                <input type="text" class="typehead from search-box"  width="20"><input type="text" class="typehead to search-box" width="20">
+            </div>
+            <div class="telemetry-panel">
+                <div id="latency_viz">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</body>
+    
+<script>
+  
+    
+
+    function authority() {
+        var url = window.location.href;
+        if (url.startsWith("file")) {
+            return "http://localhost:9000"
+        } 
+        return ""
+    }
+    
+    function updateData(callback) {  
+        $.getJSON(authority() + "/nodes", function(nodes) {
+            var nodesArr = nodes.map(function(item){ return item._id.addr; });
+        
+            $.getJSON(authority() + "/edges", function(edges) {
+                var edgesArr = edges.map( function(item) {
+                    return {
+                        from: item._id.source,
+                        to: item._id.dest,
+                        value: item.last,
+                        ts: item.timestamp
+                    }
+                } );
+            
+                callback(nodesArr, edgesArr);
+            
+            } );
+        
+        }).fail(function( jqxhr, textStatus, error ) {
+            var err = textStatus + ", " + error;
+            console.log( "Request Failed: " + err );
+        });
+    };
+    
+    function TelemetryVisualizer(from, to) {
+        $('.telemetry-panel').show('fast');
+        
+        var now = new Date().getTime();
+        var fromTime = now - (1000 * 3600)
+        var query = encodeURI(JSON.stringify({ source: from, dest: to, time: { $gt: fromTime, $lte: now } }));
+        var sort = encodeURI(JSON.stringify({ time: -1 }));
+        var isRunning = true;
+        
+        var grapthOptions = {
+            data: [],
+            width: 500,
+            height: 150,
+            target: $('#latency_viz')[0],
+            x_accessor: 'time',
+            y_accessor: 'latency',
+            //area: false,
+            title: "Latency",
+            transition_on_update: false,
+            interpolate: 'linear',
+            color: "#b7dcc3",
+            area: true,
+            top: 20
+        };
+    
+        function plot() {
+            if (!isRunning) {
+                return;
+            }
+            $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort, function(data) {
+                var ltn = data.map(function(item) { 
+                    return {
+                        time: new Date(item.time),
+                        latency: item.pingTotal
+                    }
+                }).reverse();
+                
+                grapthOptions.data = ltn;
+                
+                MG.data_graphic(grapthOptions);
+            });
+        
+        }
+    
+        plot();
+        var timerId = setInterval(plot, 10000);
+    
+        this.stop = function() {
+            clearInterval(timerId);
+            $("#latency_viz").empty();
+            $('.telemetry-panel').hide();
+        }
+    
+   }
+    
+    function selectFromList() {
+        var from = $('.from').val();
+        var to = $('.to').val();
+        
+        if (!!from && !!to) {
+            showTelemetry(from, to);
+        }
+    }
+    
+    function showTelemetry(from, to) {
+        if (!!latencyPlotter)
+            latencyPlotter.stop();
+        latencyPlotter = new TelemetryVisualizer(from, to);
+    }
+    
+    var latencyPlotter;
+    var heatmap = new Heatmap("#canv_holder", 
+        {
+            size: 600, 
+            onclick: function(from, to) {
+                $(".from").val(from);
+                $(".to").val(to);
+                showTelemetry(from, to);
+            } 
+        }
+    );
+    
+    var oldNodes = "";
+    
+    function workLoop() {
+        updateData(function(nodes, edges) {
+            heatmap.update(nodes, edges);
+            if ( oldNodes !== nodes.toString() ) {
+                $(".typehead").typeahead({source: nodes, afterSelect: selectFromList});
+                oldNodes = nodes.toString();
+            }
+            setTimeout(workLoop, 5000);
+        });
+    }
+    
+    //$(".typehead").typeahead();
+    
+    workLoop();
+    
+    
+</script>
+    
+</htm>
