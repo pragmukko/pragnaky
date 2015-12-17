@@ -5,3 +5,4 @@ mongo_db/
 .idea/
 *.out
 .DS_Store
+/native

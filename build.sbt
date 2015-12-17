@@ -6,23 +6,107 @@ scalaVersion := "2.11.7"
 
 resolvers ++= Seq(
   "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
-  "Paho Official Releases" at "https://repo.eclipse.org/content/repositories/paho-releases/",
-  "Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/",
   "anormcypher" at "http://repo.anormcypher.org/",
-  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/",
-  Resolver.bintrayRepo("hseeberger", "maven")
+  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 )
 
-mainClass in assembly := Some("Agent")
+//import sbtassembly.AssemblyKeys._
 
-libraryDependencies ++= {
-  Seq(
-    "org.eclipse.paho"   %   "org.eclipse.paho.client.mqttv3"     % "1.0.3-SNAPSHOT",
-    "default"  % "swarmakka_2.11" % "1.2.1"  artifacts Artifact("swarmakka_2.11"),
-    "io.kamon" % "sigar-loader" % "1.6.6-rev002",
-    "org.reactivemongo" %% "reactivemongo" % "0.11.8",
-    "joda-time" % "joda-time" % "2.9.1",
-    "org.joda" % "joda-convert" % "1.8"
+val akkaStreamV = "2.0-M2"
+
+lazy val common = project.in(file("common")).
+  settings(
+    name := "common",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    libraryDependencies ++= Seq(
+      "io.spray" %% "spray-json" % "1.3.2"
+    )
 
   )
-}
+
+lazy val db = project.in(file("db")).
+  dependsOn(common).
+  settings(
+    name := "db",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    libraryDependencies ++= Seq(
+      ("org.reactivemongo" %% "reactivemongo" % "0.11.8").excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
+      "joda-time" % "joda-time" % "2.9.1",
+      "org.joda" % "joda-convert" % "1.8.1",
+      "io.spray" %% "spray-json" % "1.3.2"
+    )
+  )
+
+lazy val telegen = project.in(file("telegen")).
+  dependsOn(common, db).
+  settings(
+    name := "telegen",
+    version := "1.0",
+    //organization := "",
+    scalaVersion := "2.11.7",
+    mainClass in assembly := Some("TelemetryGenerator")
+  )
+
+lazy val web = project.in(file("web")).
+  dependsOn(common, db).
+  settings(
+    name := "web",
+    version := "0.1",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
+    libraryDependencies ++= Seq(
+      ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
+      ("default"  % "swarmakka_2.11" % "1.2.1").excludeAll(
+        ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
+        ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
+        ExclusionRule(organization="de.heikoseeberger", name="akka-sse_2.11"),
+        ExclusionRule(organization="org.scala-lang", name="scala-compiler")
+      )
+
+    ),
+    mainClass in assembly := Some("web.RestNode")
+  )
+
+lazy val agent = project.in(file("agent")).
+  dependsOn(common).
+  settings(
+    name := "agent",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
+    libraryDependencies ++= Seq(
+      "io.kamon" % "sigar-loader" % "1.6.6-rev002",
+      ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
+      ("default"  % "swarmakka_2.11" % "1.2.1").exclude("org.eclipse.paho", "org.eclipse.paho.client.mqttv3").exclude("com.sandinh", "paho-akka_2.11").exclude("de.heikoseeberger", "akka-sse_2.11").exclude("org.scala-lang", "scala-compiler")
+
+    ),
+    mainClass in assembly := Some("Agent")
+  )
+lazy val supervisor = project.in(file("supervisor")).
+  dependsOn(common, db).
+  settings(
+    name := "supervisor",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    libraryDependencies ++= Seq(
+      ("default"  % "swarmakka_2.11" % "1.2.1").excludeAll(
+          ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
+          ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
+          ExclusionRule(organization="de.heikoseeberger", name="akka-sse_2.11"),
+          ExclusionRule(organization="org.scala-lang", name="scala-compiler"),
+          ExclusionRule(organization="com.typesafe.akka", name="akka-http-core-experimental_2.11"),
+          ExclusionRule(organization="com.typesafe.akka", name="akka-http-experimental_2.11"),
+          ExclusionRule(organization="com.typesafe.akka", name="akka-http-spray-json-experimental_2.11"),
+          ExclusionRule(organization="com.typesafe.akka", name="akka-stream-experimental_2.11")
+      )
+    ),
+    mainClass in assembly := Some("Supervisor")
+  )
+
