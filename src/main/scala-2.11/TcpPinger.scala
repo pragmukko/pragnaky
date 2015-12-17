@@ -1,9 +1,11 @@
+import java.io.IOException
 import java.net.{SocketAddress, SocketOption, InetAddress, InetSocketAddress}
 import java.nio.ByteBuffer
 import java.nio.channels._
 import java.util
 import java.util.concurrent
 
+import _root_.util.ConfigGenId
 import actors.Messages.Start
 import akka.actor._
 import akka.io.{Tcp, IO}
@@ -22,7 +24,7 @@ import scala.util.{Failure, Success}
 /**
  * Created by yishchuk on 27.11.2015.
  */
-class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ActorLogging {
+class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
   import context.system
   import akka.io.Tcp
   import scala.concurrent.duration._
@@ -74,7 +76,7 @@ class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ActorL
 }
 
 
-class TcpPingResponder extends Actor with ConfigProvider with ActorLogging {
+class TcpPingResponder extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
   import context.system
   import akka.io.Tcp
 
@@ -100,7 +102,7 @@ class TcpPingResponder extends Actor with ConfigProvider with ActorLogging {
   }
 }
 
-class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress, socket: ActorRef) extends Actor with ConfigProvider with ActorLogging {
+class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress, socket: ActorRef) extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
   def receive = {
     case Tcp.Received(data) =>
       if (data.head == '>'.toByte) {
@@ -119,7 +121,7 @@ class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress
   }
 }
 
-class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvider {
+class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvider with ConfigGenId {
   import akka.stream.scaladsl.Tcp
   implicit val materializer = ActorMaterializer()
 
@@ -140,7 +142,7 @@ class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvi
   }
 }
 
-class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends ConfigProvider {
+class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends ConfigProvider with ConfigGenId {
   import akka.stream.scaladsl.Tcp
   import scala.concurrent.duration._
   implicit val materializer = ActorMaterializer()
@@ -171,7 +173,7 @@ class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorS
 
 }
 
-class TcpPingResponderNio extends ConfigProvider with PingNio {
+class TcpPingResponderNio extends ConfigProvider with ConfigGenId with PingNio {
 
   //this.setDaemon(true)
 
@@ -203,7 +205,7 @@ class TcpPingResponderNio extends ConfigProvider with PingNio {
 
 }
 
-class TcpPingResponderNioSync extends Thread with ConfigProvider {
+class TcpPingResponderNioSync extends Thread with ConfigProvider with ConfigGenId {
   this.setDaemon(true)
   val serverSocketChannel = ServerSocketChannel.open()
 
@@ -215,49 +217,60 @@ class TcpPingResponderNioSync extends Thread with ConfigProvider {
 
   @tailrec
   override final def run(): Unit = {
-    val socketChannel = serverSocketChannel.accept()
-    var bytesRead = 0
-    while ({bytesRead += socketChannel.read(buf); bytesRead} < 9 + pingPayloadSize ){}
-    //val bytesRead = socketChannel.read(buf)
-    println(s"S:ping read: $bytesRead")
-    buf.flip()
-    if (bytesRead >= 9 && buf.get() == '>'.toByte) {
-      val start = buf.getLong
-      buf.clear()
-      buf.put('<'.toByte).putLong(start).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pongPayloadSize)).flip()
-      socketChannel.write(buf)
-      buf.clear()
+    try {
+      val socketChannel = serverSocketChannel.accept()
+      var bytesRead = 0
+      while ({bytesRead += socketChannel.read(buf); bytesRead} < 9 + pingPayloadSize ){}
+      //val bytesRead = socketChannel.read(buf)
+      println(s"S:ping read: $bytesRead from ${socketChannel.getRemoteAddress}")
+      buf.flip()
+      if (bytesRead >= 9 && buf.get() == '>'.toByte) {
+        val start = buf.getLong
+        buf.clear()
+        buf.put('<'.toByte).putLong(start).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pongPayloadSize)).flip()
+        socketChannel.write(buf)
+        buf.clear()
+      }
+      socketChannel.close()
+    } catch {
+      case io: IOException => println(s"S:IO error: ${io.getLocalizedMessage}")
     }
     run()
   }
 
 }
 
-class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with PingNio {
+class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with ConfigGenId with PingNio {
 
   val pongPayloadSize = config.getInt("pinger.pong-payload")
   val pingPayloadSize = config.getInt("pinger.ping-payload")
 
   def ping(host: InetAddress) = {
-    val buf = ByteBuffer.allocate(Math.max(pongPayloadSize, pingPayloadSize) + 17)
-    val channel = SocketChannel.open(new InetSocketAddress(host, config.getInt("pinger.port")))
-    buf.put('>'.toByte).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pingPayloadSize)).flip()
-    channel.write(buf)
-    buf.clear()
-    var bytesRead = 0
-    while ({bytesRead += channel.read(buf); bytesRead} < 17 + pongPayloadSize ){}
+    try {
+      val buf = ByteBuffer.allocate(Math.max(pongPayloadSize, pingPayloadSize) + 17)
+      val channel = SocketChannel.open(new InetSocketAddress(host, config.getInt("pinger.port")))
+      buf.put('>'.toByte).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pingPayloadSize)).flip()
+      channel.write(buf)
+      buf.clear()
+      var bytesRead = 0
+      while ( {
+        bytesRead += channel.read(buf); bytesRead
+      } < 17 + pongPayloadSize) {}
 
-    println(s"C:pong read: $bytesRead")
-    buf.flip()
-    if (bytesRead >= 17 && buf.get() == '<'.toByte) {
-      replyTo ! readPing(buf, host)
+      println(s"C:pong read: $bytesRead from $host")
+      buf.flip()
+      if (bytesRead >= 17 && buf.get() == '<'.toByte) {
+        replyTo ! readPing(buf, host)
+      }
+      buf.clear()
+      channel.close()
+    } catch {
+      case io: IOException => println(s"C:IO error: ${io.getLocalizedMessage}")
     }
-    buf.clear()
-    channel.close()
   }
 }
 
-class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with PingNio {
+class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with ConfigGenId with PingNio {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def ping(host: InetAddress) = {

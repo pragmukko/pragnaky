@@ -18,11 +18,11 @@ mainClass in assembly := Some("Agent")
 libraryDependencies ++= {
   Seq(
     "org.eclipse.paho"   %   "org.eclipse.paho.client.mqttv3"     % "1.0.3-SNAPSHOT",
-    "default"  % "swarmakka_2.11" % "1.2"  artifacts Artifact("swarmakka_2.11"),
-    //"org.fusesource" % "sigar" % "1.6.4" classifier "native"  classifier "" ,
+    "default"  % "swarmakka_2.11" % "1.2.1"  artifacts Artifact("swarmakka_2.11"),
     "io.kamon" % "sigar-loader" % "1.6.6-rev002",
-    "org.reactivemongo" %% "reactivemongo" % "0.11.7",
-    "joda-time" % "joda-time" % "2.9.1"
+    "org.reactivemongo" %% "reactivemongo" % "0.11.8",
+    "joda-time" % "joda-time" % "2.9.1",
+    "org.joda" % "joda-convert" % "1.8"
 
   )
 }

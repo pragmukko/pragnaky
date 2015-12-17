@@ -2,7 +2,7 @@ import java.net.InetAddress
 import java.util.Date
 
 import actors.SwarmDiscovery
-import util.{Messages, Telemetry}
+import util.{ConfigGenId, Messages, Telemetry}
 import Messages.Register
 import actors.Messages.{Start, DevDiscover, Unsubscribe, Subscribe}
 import akka.actor.{Props, ActorLogging, ActorRef, Actor}
@@ -10,7 +10,6 @@ import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{MemberUp, InitialStateAsEvents, MemberEvent, UnreachableMember}
 import builders.EmbeddedNode
 import spray.json.{JsString, JsNumber, JsObject}
-import util.Telemetry
 import utils.{ConfigProvider, NetUtils, MemberUtils}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -18,13 +17,17 @@ import scala.util.{Failure, Success}
 /**
  * Created by max on 11/24/15.
  */
+object EmbeddedNodeWithId extends EmbeddedNode with ConfigGenId
+
 object Agent extends App {
 
-  EmbeddedNode.builder().withHWGate[ClusterState].start()
+  EmbeddedNodeWithId.builder().withHWGate[ClusterState].start()
 
 }
 
 case class PingTick(hosts:List[InetAddress])
+
+case class PingHost(host: InetAddress)
 
 case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingFrom: Int, pingTotal: Int) {
   def toJs = JsObject (
@@ -38,7 +41,7 @@ case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingF
   )
 }
 
-class ClusterState extends Actor with Telemetry with ActorLogging with ConfigProvider /*with SwarmDiscovery*/ {
+class ClusterState extends Actor with Telemetry with ActorLogging with ConfigProvider with ConfigGenId /*with SwarmDiscovery*/ {
 
   val cluster = Cluster(context.system)
 
@@ -81,7 +84,10 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
     case PingTick(hosts) =>
       listeners foreach sendTelemetry
-      pingNextKnownHost(hosts)
+      //pingNextKnownHost(hosts)
+      cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).foreach(self ! PingHost(_))
+
+    case PingHost(host) => pinger.ping(host)
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")

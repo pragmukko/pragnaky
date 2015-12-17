@@ -1,6 +1,6 @@
 import java.util.Date
 
-import util.Messages
+import util.{ConfigGenId, Messages}
 import Messages.{PersistenceError, Register}
 import actors.GCExtentions
 import akka.actor.{ActorLogging, ActorRef}
@@ -12,9 +12,11 @@ import spray.json.{JsNumber, JsString, JsObject}
 /**
  * Created by max on 11/24/15.
  */
+object GRoundControlNodeGenId extends GRoundControlNode with ConfigGenId
+
 object Supervisor extends App {
 
-  GRoundControlNode
+  GRoundControlNodeGenId
     .build()
     .withREST(false)
     .addExtention[TelemetryAdapter]
