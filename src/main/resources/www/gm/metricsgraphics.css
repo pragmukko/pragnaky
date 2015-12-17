@@ -6,15 +6,15 @@
 }
 
 .mg-area1-color {
-    fill: #0000ff;
+    fill: #b7dcc3;
 }
 
 .mg-area2-color {
-    fill: #05b378;
+    fill: #9DCDE8;
 }
 
 .mg-area3-color {
-    fill: #db4437;
+    fill: #BEC1DC;
 }
 
 .mg-area4-color {
@@ -159,7 +159,7 @@
 }
 
 .mg-line1-color {
-    stroke: #4040e8;
+    stroke: #b7dcc3;
 }
 
 .mg-hover-line1-color {
@@ -167,7 +167,7 @@
 }
 
 .mg-line2-color {
-    stroke: #05b378;
+    stroke: #9DCDE8;
 }
 
 .mg-hover-line2-color {
@@ -175,7 +175,7 @@
 }
 
 .mg-line3-color {
-    stroke: #db4437;
+    stroke: #BEC1DC;
 }
 
 .mg-hover-line3-color {

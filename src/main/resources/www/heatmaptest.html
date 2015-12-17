@@ -7,13 +7,12 @@
     <script src="d3.min.js"></script>
     <script src="typehead.js"></script>
     <script src="gm/metricsgraphics.js"></script>
+    <script src="cubism.telemetry.js"></script>
     <link href="bootstrap.css" rel="stylesheet" type="text/css"></link>
     <link href="gm/metricsgraphics.css" rel="stylesheet" type="text/css"></link>    
     <link href="style.css" rel="stylesheet" type="text/css"></link>
+
     <style>
-        body {
-            /*font-family: 'Fira Sans', 'sans-serif', 'serif';*/
-        }
         
         #canv_holder {
             clear:both;
@@ -33,7 +32,7 @@
             border-bottom-color: #f2f2f2;
             border-bottom-width: 1;
             border-top-color: #990000;
-            border-top-width: 2;
+            border-top-width: 3;
             border-bottom-style: solid;
             border-top-style: solid;
         }
@@ -41,7 +40,6 @@
             font-weight: 100; 
             font-size: 21px;
             color: #333333;
-            color: #666666;
             margin: 10;
         }
         .search-box {
@@ -56,6 +54,12 @@
         }
         .from {
             padding-left: 10px; 
+        }
+        .telemetry-label {
+            position: relative;
+            top: -20;
+            left: 20;
+            color: #666666;
         }
         
     </style>
@@ -75,8 +79,20 @@
                 <input type="text" class="typehead from search-box"  width="20"><input type="text" class="typehead to search-box" width="20">
             </div>
             <div class="telemetry-panel">
-                <div id="latency_viz">
-                </div>
+                <div id="latency_viz"></div>
+                <div class="telemetry-label" style="top: -50">Latency</div>
+                
+                <div id="hos1-telemetry-cpu"></div>
+                <div class="telemetry-label">CPU</div>
+                
+                <div id="hos1-telemetry-mem"></div>
+                <div class="telemetry-label">RAM</div>
+                
+                <div id="hos2-telemetry-cpu"></div>
+                <div class="telemetry-label">CPU</div>
+                
+                <div id="hos2-telemetry-mem"></div>
+                <div class="telemetry-label">RAM</div>
             </div>
         </div>
     </div>
@@ -122,32 +138,37 @@
     function TelemetryVisualizer(from, to) {
         $('.telemetry-panel').show('fast');
         
-        var now = new Date().getTime();
-        var fromTime = now - (1000 * 3600)
-        var query = encodeURI(JSON.stringify({ source: from, dest: to, time: { $gt: fromTime, $lte: now } }));
         var sort = encodeURI(JSON.stringify({ time: -1 }));
         var isRunning = true;
         
         var grapthOptions = {
             data: [],
             width: 500,
-            height: 150,
-            target: $('#latency_viz')[0],
+            height: 100,
+            target: '#latency_viz',
             x_accessor: 'time',
             y_accessor: 'latency',
-            //area: false,
-            title: "Latency",
+            //title: "Latency",
             transition_on_update: false,
             interpolate: 'linear',
-            color: "#b7dcc3",
-            area: true,
-            top: 20
+            x_axis: false,
+            y_axis: false,
+            bottom: 0,
+            left: 0,
+            top: 10,
+            area: false,
+            //max_data_size: 100
         };
     
-        function plot() {
+        var fromTime = 0;
+        
+        function plot(now, startTime) {
             if (!isRunning) {
                 return;
             }
+            
+            var query = encodeURI(JSON.stringify({ source: from, dest: to, time: { $gt: startTime, $lte: now } }));
+        
             $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort, function(data) {
                 var ltn = data.map(function(item) { 
                     return {
@@ -157,14 +178,84 @@
                 }).reverse();
                 
                 grapthOptions.data = ltn;
-                
                 MG.data_graphic(grapthOptions);
             });
         
         }
+        
+        function plotTelemetry(host, selectorCpu, selectorMem, now, startTime) {
+            var query = encodeURI(JSON.stringify({ addr: host, timestamp: { $gt: startTime, $lte: now }  }));
+            var sort = encodeURI(JSON.stringify({ timestamp: -1 }));
+            $.getJSON("http://localhost:9000/db/telemetry?q=" + query + "&sort=" + sort, function(data) {
+                if (!!data && data.length > 0) {
+                    var ltnCpu = data.map(function(item) {
+                        return {
+                            date: new Date(item.timestamp),
+                            value: Math.floor(item.cpu * 100)
+                        }
+                    });
+                    
+                    var ltnMem = data.map(function(item) {
+                        return {
+                            date: new Date(item.timestamp),
+                            value: Math.floor(item.memory)
+                        }
+                    });
+                    
+                    MG.data_graphic({
+                        data: ltnCpu,
+                        width: 500,
+                        height: 40,
+                        target: selectorCpu,
+                        //title: "Latency",
+                        transition_on_update: false,
+                        interpolate: 'linear',
+                        area: true,
+                        top: 10,
+                        x_axis: false,
+                        y_axis: false,
+                        bottom: 0,
+                        left: 0,
+                        buffer: 0,
+                        area: false,
+                        custom_line_color_map: [2]
+                    });
+                    
+                    MG.data_graphic({
+                        data: ltnMem,
+                        width: 500,
+                        height: 40,
+                        target: selectorMem,
+                        //title: "Latency",
+                        transition_on_update: false,
+                        interpolate: 'linear',
+                        area: true,
+                        x_axis: false,
+                        y_axis: false,
+                        bottom: 0,
+                        left: 0,
+                        buffer: 0,
+                        top: 10,
+                        area: false,
+                        custom_line_color_map: [3]
+                    });
+                }
+            }); 
+        };
+        
+        function loop() {
+            var now = new Date().getTime();
+            if (fromTime == 0) {
+                fromTime = now - (1000 * 3600 * 6);
+            }
+            plot(now, fromTime);
+            plotTelemetry(from,"#hos1-telemetry-cpu", "#hos1-telemetry-mem", now, fromTime);
+            plotTelemetry(to,"#hos2-telemetry-cpu", "#hos2-telemetry-mem", now, fromTime);
+            fromTime = now;
+        }
     
-        plot();
-        var timerId = setInterval(plot, 10000);
+        loop();
+        var timerId = setInterval(loop, 1000);
     
         this.stop = function() {
             clearInterval(timerId);
@@ -180,6 +271,7 @@
         
         if (!!from && !!to) {
             showTelemetry(from, to);
+            heatmap.select(from, to);
         }
     }
     
@@ -215,6 +307,8 @@
     }
     
     //$(".typehead").typeahead();
+    
+    $('.telemetry-panel').hide();
     
     workLoop();
     

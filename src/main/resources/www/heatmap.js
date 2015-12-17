@@ -15,6 +15,8 @@
         var zoomStartY;
         var cellsIndexes = {};
         var lastSelectedKey;
+     
+        var selected;
         
         var self = this;
         
@@ -122,18 +124,23 @@
         }, false);
         
         controll_cnv.addEventListener('click', function(evt) {
-            if ( !!option.onclick ) {
-                var mousePos = getMousePos(controll_cnv, evt);
-                var xi = Math.floor(mousePos.x / cellSize);
-                var yi = Math.floor((cnvSize - mousePos.y) / cellSize);
+            var mousePos = getMousePos(controll_cnv, evt);
+            var xi = Math.floor(mousePos.x / cellSize);
+            var yi = Math.floor((cnvSize - mousePos.y) / cellSize);
+            if ( !!option.onclick ) {    
                 var xIndex = zoomStartX + xi;
                 var yIndex = zoomStartY + yi;
-                
                 option.onclick(cells[xIndex], cells[yIndex]);
             }
+            
+            hilight(xi, yi);
+            
         }, true);
         
-        //function 
+        function hilight(x, y) {
+            addCtx.strokeStyle = "#990000";
+            addCtx.strokeRect(x * cellSize, cnvSize - (y + 1) * cellSize, cellSize, cellSize);
+        }
         
         function showTooltip(key, value, x, y) {
             tooltip.style.top = Math.floor(y);
@@ -141,7 +148,7 @@
             tooltip.style.background = "#ffffff";
             tooltip.style.display = "inline";
             key = key.replace("_", " &rarr; ")
-            tooltip.innerHTML = "<span style=' font-size: 14px; background: #ffffff; padding: 3px 10px 3px 10px;'>" + key + "</span><span style='background: #4d4d4d; padding: 3px 10px 3px 10px; color: #f2f2f2; font-size: 14px'>" + value + " ms </span>";
+            tooltip.innerHTML = "<span style=' font-size: 14px; letter-spacing: 1.19px; background: #ffffff; padding: 3px 10px 3px 10px;'>" + key + "</span><span style='background: #4d4d4d; padding: 3px 10px 3px 10px; color: #f2f2f2; font-size: 14px; letter-spacing: 1.19px;'>" + value + " ms </span>";
         }
         
         function hideToolTip() {
@@ -159,6 +166,15 @@
             }
             return from + "_" + to;
             //return from + "_" + to;
+        }
+     
+        this.select = function(from, to) {
+            var xi = cellsIndexes[from];
+            var yi = cellsIndexes[to];
+            if (yi > xi) {
+                yi = [xi, xi = yi][0];
+            }
+            hilight(xi, yi);
         }
         
         this.updateGrid = function(data) {
@@ -199,6 +215,7 @@
             cellSize = cnvSize / cells.length;
             zoomStartX = 0;
             zoomStartY = 0;
+            this.plot();
         }
         
         this.zoom = function(start, end) {
