@@ -90,8 +90,8 @@
 }
 
 .horizon {
-  border-top: solid 1px #000;
-  border-bottom: solid 1px #000;
+  border-top: solid 1px #cccccc;
+  border-bottom: solid 1px #cccccc;
 }
 
 .horizon + .horizon {
@@ -130,4 +130,13 @@
   body { margin: 0px auto; }
   .axis { position: static; }
   .axis.top, .axis.bottom { padding: 0; }
+}
+
+.caption {
+    font-size : 10px; letter-spacing : 0.28px;
+    padding-left: 30px;
+}
+
+.green-background {
+    background: #ecf5fb;
 }

@@ -15,11 +15,7 @@
     <style>
         
         #canv_holder {
-            width: 400px;
-            height: 400px;
-            overflow: hidden;
             margin-right: 20px;
-            float: right;
         }
         #line-chart {
             position: relative;
@@ -86,6 +82,15 @@
             font-size: 14px;
             border-radius: 10px;
             top: 1px;
+            
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 400px;
+            z-index: 1000;
         }
         
     </style>
@@ -96,21 +101,31 @@
         <h3><img style="margin-left: 25px; margin-right: 25px" src="img/Cisco_logo_2006.png" height="60"> <span>Latency Monitoring System</span></h3>
     </header>
     
-    <div style="position: absolute;">
-        <div class="search-box-holder">
-            <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
-            <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
-            <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+    
+        <div class="central-container">
+            <div id="canv_holder">
+            </div>
+            <div class="control-panel">
+                <div style="position: relative; left: -100;">
+                    <div class="search-box-holder">
+                        <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
+                        <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
+                        <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+                    </div>
+                    <div class="telemetry-panel" style="margin-top: 50px; padding-right: 40px; ">
+                    </div>
+                </div>
         </div>
-    </div>
-    <div>
-        <div id="canv_holder">
         </div>
-    </div>
-    <div style="clear: both;">
-        <div class="telemetry-panel">
-        </div>
-    </div>
+        <!--<div class="col-md-7">
+            <div class="search-box-holder">
+                <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
+                <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
+                <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+            </div>
+            <div class="telemetry-panel" style="margin-top: 50px; padding-right: 40px; ">
+            </div>
+        </div>-->
     
     
 </body>
@@ -172,9 +187,21 @@
         $(".telemetry-panel").show("fast");
     }
     
+    var windowWidth = window.innerWidth
+        || document.documentElement.clientWidth
+        || document.body.clientWidth;
+
+    var windowHeigh = window.innerHeight
+        || document.documentElement.clientHeight
+        || document.body.clientHeight;
+    
+    windowHeigh -= $("header").height();
+    var heatmapSize = Math.min(windowHeigh, windowWidth);
+    $(".central-container").css({"position": "relative", "width": heatmapSize, "heigh": heatmapSize, "margin": "auto"});
+    
     var heatmap = new Heatmap("#canv_holder", 
         {
-            size: 400, 
+            size: heatmapSize, 
             onclick: function(from, to) {
                 $(".from").val(from);
                 $(".to").val(to);
@@ -185,14 +212,14 @@
     
     var oldNodes = "";
     
-    function workLoop() {
+    function workLoop(hm) {
         updateData(function(nodes, edges) {
-            heatmap.update(nodes, edges);
+            hm.update(nodes, edges);
             if ( oldNodes !== nodes.toString() ) {
                 $(".typehead").typeahead({source: nodes, afterSelect: selectFromList});
                 oldNodes = nodes.toString();
             }
-            setTimeout(workLoop, 5000);
+            setTimeout(workLoop, 5000, hm);
         });
     }
     
@@ -200,9 +227,9 @@
     
     $('.telemetry-panel').hide();
     
-    workLoop();
+    workLoop(heatmap);
     
     
 </script>
     
-</htm>
+</htm>  

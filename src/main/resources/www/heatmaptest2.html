@@ -15,8 +15,8 @@
     <style>
         
         #canv_holder {
-            width: 400px;
-            height: 400px;
+            width: 500px;
+            height: 500px;
             overflow: hidden;
             margin-right: 20px;
             float: right;
@@ -86,6 +86,7 @@
             font-size: 14px;
             border-radius: 10px;
             top: 1px;
+            
         }
         
     </style>
@@ -96,22 +97,21 @@
         <h3><img style="margin-left: 25px; margin-right: 25px" src="img/Cisco_logo_2006.png" height="60"> <span>Latency Monitoring System</span></h3>
     </header>
     
-    <div style="position: absolute;">
-        <div class="search-box-holder">
-            <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
-            <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
-            <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+    <div class="row">
+        <div class="col-md-5">
+            <div id="canv_holder">
+            </div>
         </div>
-    </div>
-    <div>
-        <div id="canv_holder">
+        <div class="col-md-7">
+            <div class="search-box-holder">
+                <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
+                <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
+                <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+            </div>
+            <div class="telemetry-panel" style="margin-top: 50px; padding-right: 40px; ">
+            </div>
         </div>
-    </div>
-    <div style="clear: both;">
-        <div class="telemetry-panel">
-        </div>
-    </div>
-    
+    </div> 
     
 </body>
     
@@ -174,7 +174,7 @@
     
     var heatmap = new Heatmap("#canv_holder", 
         {
-            size: 400, 
+            size: 500, 
             onclick: function(from, to) {
                 $(".from").val(from);
                 $(".to").val(to);

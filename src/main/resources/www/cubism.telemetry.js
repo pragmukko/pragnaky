@@ -1,23 +1,24 @@
 function TelemetryPlotter(selector, from, to) {
     
     var context = cubism.context()
-        .step(5000)
-        .size(1440);
+        .step(3600000 / 360)
+        .size(360);
 
     /*d3.select(selector).selectAll(".axis")
         .data(["bottom"])
         .enter().append("div")
         .attr("class", function(d) { return d + " axis"; })
         .each(function(d) { d3.select(this).call(context.axis().ticks(12).orient(d)); });*/
-
+    
     d3.select(selector).append("div")
         .attr("class", "rule")
         .call(context.rule());
-
+    
+    
     d3.select(selector).selectAll(".horizon")
         .data([latency()])
     .enter().insert("div", ".caption")
-        .attr("class", "horizon")
+        .attr("class", "horizon green-background")
         .call(context.horizon().extent([0, 10000]));
     
     d3.select(selector).append("div").attr("class", "caption").text(from);
@@ -25,7 +26,7 @@ function TelemetryPlotter(selector, from, to) {
     d3.select(selector).selectAll("empty")
         .data([telemetry("CPU", from), telemetry("MEM", from)])
     .enter().append("div", ".caption")
-        .attr("class", "horizon")
+        .attr("class", "horizon green-background")
         .call(context.horizon().extent([0, 100]));
     
     d3.select(selector).append("div").attr("class", "caption").text(to);
@@ -33,7 +34,7 @@ function TelemetryPlotter(selector, from, to) {
     d3.select(selector).selectAll("empty")
         .data([telemetry("CPU", to), telemetry("MEM", to)])
     .enter().append("div", ".caption")
-        .attr("class", "horizon")
+        .attr("class", "horizon green-background")
         .call(context.horizon().colors(["#ecf5fb", "#B7DCC3"]));
     
     d3.select(selector).selectAll(".axis")
@@ -41,6 +42,8 @@ function TelemetryPlotter(selector, from, to) {
         .enter().append("div")
         .attr("class", function(d) { return d + " axis"; })
         .each(function(d) { d3.select(this).call(context.axis().ticks(12).orient(d)); });
+    
+    d3.select(selector).insert("div", ".horizon").attr("class", "caption").html(from + " &rarr; " + to);
     
     context.on("focus", function(i) {
         d3.selectAll(".value").style("right", i == null ? null : context.size() - i + "px");
