@@ -1,6 +1,6 @@
 package web
 
-import akka.actor.ActorSystem
+import akka.actor.{Cancellable, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshaller
@@ -20,6 +20,7 @@ import utils.ConfigProvider
 import reactivemongo.api.commands._
 import scala.concurrent.Future
 import akka.agent.Agent
+import scala.concurrent.duration._
 
 /**
  * Created by yishchuk on 30.11.2015.
@@ -54,6 +55,16 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
   }
 
   val knownHosts = Agent(Set.empty[String])
+  val knownHostCancels = Agent(Map.empty[String, Cancellable])
+
+  private def updateHost(host: String) = {
+    knownHostCancels().get(host).foreach(_.cancel())
+    knownHostCancels send {_ - host}
+    knownHosts send { _ + host}
+    val timeout: FiniteDuration = config.getDuration("pinger.rest-inactivity-timeout")
+    val hostCancel = system.scheduler.scheduleOnce(timeout) {println(s"cancelling host $host"); knownHosts send { _ - host}; knownHostCancels send {_ - host}}
+    knownHostCancels send {_ + (host -> hostCancel)}
+  }
 
   val routes = {
     import Directives._
@@ -95,7 +106,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
             remoteAddr.getAddress map {
               _.getHostAddress
             } foreach { host =>
-              knownHosts send { _ + host}
+              updateHost(host)
               value match {
                 case array: JsArray => persistTelemetry(host, array.elements.collect { case o: JsObject => o })
                 case obj: JsObject => persistTelemetry(host, Seq(obj))
@@ -110,7 +121,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
       } ~ path("latency") {
         post {
           (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
-            remoteAddr.getAddress map {_.getHostAddress} foreach {host => knownHosts send { _ + host}}
+            remoteAddr.getAddress map {_.getHostAddress} foreach updateHost
             value match {
               case array: JsArray => array.elements.collect { case obj: JsObject => saveLatency(obj) }
               case obj: JsObject => saveLatency(obj)
@@ -134,6 +145,8 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
   implicit class BsonSupport(strOpt: Option[String]) {
     def toBson = strOpt.map(str => writer.write(JsonParser(str).asJsObject)).getOrElse(BSONDocument())
   }
+
+  implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration = Duration.fromNanos(d.toNanos)
 
 }
 
