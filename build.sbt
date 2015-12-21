@@ -27,6 +27,20 @@ lazy val common = project.in(file("common")).
 
   )
 
+lazy val pinger = project.in(file("pinger")).
+  dependsOn(common).
+  settings(
+    name := "pinger",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-actor" % akkaV,
+      "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamV
+    )
+
+  )
+
 lazy val db = project.in(file("db")).
   dependsOn(common).
   settings(
@@ -75,8 +89,20 @@ lazy val web = project.in(file("web")).
     mainClass in assembly := Some("web.RestNode")
   )
 
-lazy val agent = project.in(file("agent")).
+lazy val sigar = project.in(file("sigar")).
   dependsOn(common).
+  settings(
+    name := "sigar",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    libraryDependencies ++= Seq(
+      "io.kamon" % "sigar-loader" % "1.6.6-rev002"
+    )
+  )
+
+lazy val agent = project.in(file("agent")).
+  dependsOn(sigar,pinger).
   settings(
     name := "agent",
     version := "1.0",
@@ -84,13 +110,27 @@ lazy val agent = project.in(file("agent")).
     scalaVersion := "2.11.7",
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
-      "io.kamon" % "sigar-loader" % "1.6.6-rev002",
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
       ("default"  % "swarmakka_2.11" % "1.2.1").exclude("org.eclipse.paho", "org.eclipse.paho.client.mqttv3").exclude("com.sandinh", "paho-akka_2.11").exclude("de.heikoseeberger", "akka-sse_2.11").exclude("org.scala-lang", "scala-compiler")
 
     ),
     mainClass in assembly := Some("Agent")
   )
+
+lazy val restagent = project.in(file("restagent")).
+  dependsOn(sigar,pinger).
+  settings(
+    name := "restagent",
+    version := "1.0",
+    organization := "default",
+    scalaVersion := "2.11.7",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
+      ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler"))
+    ),
+    mainClass in assembly := Some("RestAgent")
+  )
+
 lazy val supervisor = project.in(file("supervisor")).
   dependsOn(common, db).
   settings(

@@ -1,6 +1,6 @@
 import java.net.InetAddress
 
-import spray.json.{JsString, JsNumber, JsObject}
+import spray.json.{JsNumber, JsObject, JsString}
 
 case class PingTick(hosts:List[InetAddress])
 
@@ -18,3 +18,4 @@ case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingF
   )
 }
 
+object PingStart

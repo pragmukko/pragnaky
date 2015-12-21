@@ -1,12 +1,10 @@
 import java.io.IOException
-import java.net.{SocketAddress, SocketOption, InetAddress, InetSocketAddress}
+import java.net._
 import java.nio.ByteBuffer
 import java.nio.channels._
 import java.util
 import java.util.concurrent
 
-import _root_.util.ConfigGenId
-import actors.Messages.Start
 import akka.actor._
 import akka.io.{Tcp, IO}
 import akka.io.Tcp.Register
@@ -15,7 +13,7 @@ import akka.stream.scaladsl.{Sink, Flow, Source}
 import akka.stream.scaladsl.Tcp.{IncomingConnection, ServerBinding}
 import akka.stream.stage.{PushStage, Context, SyncDirective}
 import akka.util.ByteString
-import utils.{ConfigProvider, NetUtils}
+import com.typesafe.config.ConfigFactory
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise, Future}
@@ -24,7 +22,7 @@ import scala.util.{Failure, Success}
 /**
  * Created by yishchuk on 27.11.2015.
  */
-class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
+class TcpPinger(host: InetAddress) extends Actor with PingerConfigProvider with ActorLogging {
   import context.system
   import akka.io.Tcp
   import scala.concurrent.duration._
@@ -32,7 +30,7 @@ class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with Config
 
 
   def receive = {
-    case Start =>
+    case PingStart =>
       IO(Tcp) ! Tcp.Connect(new InetSocketAddress(host, config.getInt("pinger.port")),  options = Tcp.SO.KeepAlive(true) :: Tcp.SO.TcpNoDelay(true) :: Nil)
       context become receiveConnection(sender())
   }
@@ -76,7 +74,7 @@ class TcpPinger(host: InetAddress) extends Actor with ConfigProvider with Config
 }
 
 
-class TcpPingResponder extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
+class TcpPingResponder extends Actor with PingerConfigProvider with ActorLogging {
   import context.system
   import akka.io.Tcp
 
@@ -102,7 +100,7 @@ class TcpPingResponder extends Actor with ConfigProvider with ConfigGenId with A
   }
 }
 
-class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress, socket: ActorRef) extends Actor with ConfigProvider with ConfigGenId with ActorLogging {
+class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress, socket: ActorRef) extends Actor with PingerConfigProvider with ActorLogging {
   def receive = {
     case Tcp.Received(data) =>
       if (data.head == '>'.toByte) {
@@ -121,7 +119,7 @@ class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress
   }
 }
 
-class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvider with ConfigGenId {
+class TcpPingResponderFlow(implicit val system: ActorSystem) extends PingerConfigProvider {
   import akka.stream.scaladsl.Tcp
   implicit val materializer = ActorMaterializer()
 
@@ -142,7 +140,7 @@ class TcpPingResponderFlow(implicit val system: ActorSystem) extends ConfigProvi
   }
 }
 
-class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends ConfigProvider with ConfigGenId {
+class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorSystem) extends PingerConfigProvider {
   import akka.stream.scaladsl.Tcp
   import scala.concurrent.duration._
   implicit val materializer = ActorMaterializer()
@@ -161,7 +159,7 @@ class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorS
       val sentTs = dataBB.getLong
       val replyTs = dataBB.getLong
       val nowTs = System.currentTimeMillis()
-      RichPing(nowTs, NetUtils.localHost.getHostAddress, host, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
+      RichPing(nowTs, PingerNetUtils.localHost.getHostAddress, host, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
     }
   val pingSink = Sink.foreach[RichPing]{replyTo ! _}
 
@@ -173,7 +171,7 @@ class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorS
 
 }
 
-class TcpPingResponderNio extends ConfigProvider with ConfigGenId with PingNio {
+class TcpPingResponderNio extends PingerConfigProvider with PingNio {
 
   //this.setDaemon(true)
 
@@ -205,7 +203,7 @@ class TcpPingResponderNio extends ConfigProvider with ConfigGenId with PingNio {
 
 }
 
-class TcpPingResponderNioSync extends Thread with ConfigProvider with ConfigGenId {
+class TcpPingResponderNioSync extends Thread with PingerConfigProvider {
   this.setDaemon(true)
   val serverSocketChannel = ServerSocketChannel.open()
 
@@ -240,7 +238,7 @@ class TcpPingResponderNioSync extends Thread with ConfigProvider with ConfigGenI
 
 }
 
-class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with ConfigGenId with PingNio {
+class TcpPingerNioSync(replyTo: ActorRef) extends PingerConfigProvider with PingNio {
 
   val pongPayloadSize = config.getInt("pinger.pong-payload")
   val pingPayloadSize = config.getInt("pinger.ping-payload")
@@ -270,7 +268,7 @@ class TcpPingerNioSync(replyTo: ActorRef) extends ConfigProvider with ConfigGenI
   }
 }
 
-class TcpPingerNio(replyTo: ActorRef) extends ConfigProvider with ConfigGenId with PingNio {
+class TcpPingerNio(replyTo: ActorRef) extends PingerConfigProvider with PingNio {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def ping(host: InetAddress) = {
@@ -339,6 +337,29 @@ trait PingNio {
     val sentTs = bb.getLong
     val replyTs = bb.getLong
     val nowTs = System.currentTimeMillis()
-    RichPing(nowTs, NetUtils.localHost.getHostAddress, host.getHostAddress, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
+    RichPing(nowTs, PingerNetUtils.localHost.getHostAddress, host.getHostAddress, (replyTs-sentTs).toInt, (nowTs-replyTs).toInt, (nowTs-sentTs).toInt)
   }
+}
+
+object PingerNetUtils {
+
+  import scala.collection.JavaConverters._
+
+  lazy val localHost = {
+    val local = NetworkInterface.getNetworkInterfaces.asScala flatMap { ni =>
+      if (ni.isLoopback) None
+      else {
+        ni.getInterfaceAddresses.asScala.map(ia=>(Option(ia.getBroadcast), ia.getAddress)).collectFirst{
+          case (Some(_), address) => address
+        }
+      }
+    }
+    val localHostName = local.next()
+    println(s"localhost: ${localHostName.getHostAddress}")
+    localHostName
+  }
+}
+
+trait PingerConfigProvider {
+  lazy val config = ConfigFactory.load()
 }
