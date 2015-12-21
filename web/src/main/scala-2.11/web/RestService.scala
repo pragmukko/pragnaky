@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshaller
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, HttpHeader}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{`Access-Control-Allow-Credentials`, `Access-Control-Max-Age`, `Access-Control-Allow-Headers`}
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives._
@@ -19,6 +19,7 @@ import spray.json._
 import utils.ConfigProvider
 import reactivemongo.api.commands._
 import scala.concurrent.Future
+import akka.agent.Agent
 
 /**
  * Created by yishchuk on 30.11.2015.
@@ -42,52 +43,91 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
     HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
   }
 
+  implicit val stringSetMarshaller = Marshaller.opaque { addrs: Set[String] =>
+    val js = JsArray(Vector(addrs.toList map {JsString(_)}:_*))
+    HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
+  }
+
   def start() = {
     Http().bindAndHandle(cors { routes }, config.getString("http.interface"), config.getInt("http.port"))
     println("REST Service started")
   }
+
+  val knownHosts = Agent(Set.empty[String])
 
   val routes = {
     import Directives._
 
     logRequestResult("swarm-akka") {
       (path("db" / knownDbs) & parameters('q.?, 'p.?, 'sort.?, 'limit.as[Int].?)) { (db, q, p, sort, limit) =>
-            get {
-                complete {
-                  db.find(q.toBson, p.toBson).sort(sort.toBson).cursor[BSONDocument]().collect[List](limit.getOrElse(100))
-                }
+        get {
+            complete {
+              db.find(q.toBson, p.toBson).sort(sort.toBson).cursor[BSONDocument]().collect[List](limit.getOrElse(100))
             }
-          } ~ path("edges") {
-            get {
-              complete {
-                val col:BSONCollection = knownDbs("latency")
-                import col.BatchCommands.AggregationFramework.{
-                  Sort, Group, Last, Ascending
-                }
-                val sort = Sort(Ascending("time"))
-                val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))("last" -> Last("pingTotal"), "timestamp" -> Last("time"))
-                col.aggregate(sort, List(group)).map(_.documents)
+        }
+      } ~ path("edges") {
+        get {
+          complete {
+            val col:BSONCollection = knownDbs("latency")
+            import col.BatchCommands.AggregationFramework.{
+              Sort, Group, Last, Ascending
+            }
+            val sort = Sort(Ascending("time"))
+            val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))("last" -> Last("pingTotal"), "timestamp" -> Last("time"))
+            col.aggregate(sort, List(group)).map(_.documents)
+          }
+        }
+      } ~ path("nodes") {
+        get {
+          complete {
+            val col:BSONCollection = knownDbs("telemetry")
+            import col.BatchCommands.AggregationFramework.{
+              Sort, Group, Last, Ascending
+            }
+            val sort = Sort(Ascending("timestamp"))
+            val group = Group(BSONDocument("addr" -> "$addr"))("last" -> Last("timestamp"), "cpu" -> Last("cpu"))
+            col.aggregate(sort, List(group)).map(_.documents)
+          }
+        }
+      } ~ path("telemetry") {
+        post {
+          (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
+            remoteAddr.getAddress map {
+              _.getHostAddress
+            } foreach { host =>
+              knownHosts send { _ + host}
+              value match {
+                case array: JsArray => persistTelemetry(host, array.elements.collect { case o: JsObject => o })
+                case obj: JsObject => persistTelemetry(host, Seq(obj))
+                case _ => println(s"Unknown telemetry JS value: $value")
               }
             }
-          } ~ path("nodes") {
-            get {
-              complete {
-                val col:BSONCollection = knownDbs("telemetry")
-                import col.BatchCommands.AggregationFramework.{
-                  Sort, Group, Last, Ascending
-                }
-                val sort = Sort(Ascending("timestamp"))
-                val group = Group(BSONDocument("addr" -> "$addr"))("last" -> Last("timestamp"), "cpu" -> Last("cpu"))
-                col.aggregate(sort, List(group)).map(_.documents)
-              }
+            complete {
+              knownHosts.future
             }
-          } ~ path("") {
-                get {
-                  getFromResource(s"www/index.html")
-              }
-            } ~
-              getFromResourceDirectory("www")
-      }
+          }
+        }
+      } ~ path("latency") {
+        post {
+          (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
+            remoteAddr.getAddress map {_.getHostAddress} foreach {host => knownHosts send { _ + host}}
+            value match {
+              case array: JsArray => array.elements.collect { case obj: JsObject => saveLatency(obj) }
+              case obj: JsObject => saveLatency(obj)
+              case _ => println(s"Unknown latency JS value: $value")
+            }
+            complete {
+              knownHosts.future
+            }
+          }
+        }
+      } ~ path("") {
+        get {
+          getFromResource(s"www/index.html")
+        }
+      } ~
+        getFromResourceDirectory("www")
+    }
 
   }
 

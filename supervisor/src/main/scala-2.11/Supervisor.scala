@@ -36,7 +36,7 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
     case Register(gateway) =>
       sender().path.address.host.foreach( addNodeIfNotExists(_, gateway) )
 
-    case telemetry:Array[JsObject] => persistTelemetry(sender(), telemetry)
+    case telemetry:Array[JsObject] => sender().path.address.host foreach {persistTelemetry(_, telemetry)}
 
     case rp:RichPing => saveLatency(rp.toJs)
 
@@ -47,15 +47,5 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
       }
   }
 
-  def persistTelemetry(addr:ActorRef, telemetry:Array[JsObject]) = {
-    addr.path.address.host.toList flatMap {
-      host =>
-        telemetry.map( t => JsObject(
-          t.fields +
-            ("addr" -> JsString(host)) +
-            ("timestamp" -> JsNumber(new Date().getTime()))
-        ))
-    } foreach saveTelemetry
-  }
 
 }

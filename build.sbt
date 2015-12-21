@@ -12,6 +12,7 @@ resolvers ++= Seq(
 
 //import sbtassembly.AssemblyKeys._
 
+val akkaV = "2.4.1"
 val akkaStreamV = "2.0-M2"
 
 lazy val common = project.in(file("common")).
@@ -34,6 +35,7 @@ lazy val db = project.in(file("db")).
     organization := "default",
     scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
+      "com.typesafe.akka"  %%  "akka-actor" % akkaV,
       ("org.reactivemongo" %% "reactivemongo" % "0.11.8").excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
       "joda-time" % "joda-time" % "2.9.1",
       "org.joda" % "joda-convert" % "1.8.1",
@@ -61,6 +63,7 @@ lazy val web = project.in(file("web")).
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
+      "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
       ("default"  % "swarmakka_2.11" % "1.2.1").excludeAll(
         ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
         ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
@@ -103,8 +106,8 @@ lazy val supervisor = project.in(file("supervisor")).
           ExclusionRule(organization="org.scala-lang", name="scala-compiler"),
           ExclusionRule(organization="com.typesafe.akka", name="akka-http-core-experimental_2.11"),
           ExclusionRule(organization="com.typesafe.akka", name="akka-http-experimental_2.11"),
-          ExclusionRule(organization="com.typesafe.akka", name="akka-http-spray-json-experimental_2.11"),
-          ExclusionRule(organization="com.typesafe.akka", name="akka-stream-experimental_2.11")
+          ExclusionRule(organization="com.typesafe.akka", name="akka-http-spray-json-experimental_2.11")/*,
+          ExclusionRule(organization="com.typesafe.akka", name="akka-stream-experimental_2.11")*/
       )
     ),
     mainClass in assembly := Some("Supervisor")

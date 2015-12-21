@@ -1,12 +1,13 @@
 package db.mongo
 
+import java.util.Date
+
 import akka.actor.{Actor, ActorRef}
 import reactivemongo.api.{DefaultDB, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
 import reactivemongo.bson.BSONDocument
-import spray.json.{JsValue, JsObject}
-import util.Messages
+import spray.json._
 import util.Messages.PersistenceError
 
 import scala.concurrent.{Future, ExecutionContextExecutor}
@@ -55,6 +56,14 @@ trait MongoMetricsDAL extends Mongo2Spray {
       case Success(res) => actorOpt foreach {_ ! PersistenceError(res)}; println(s"can't insert, result: $res")
       case Failure(th)  => actorOpt foreach {_ ! PersistenceError(th)}; println(s"can't insert, cause: $th")
     }
+  }
+
+  def persistTelemetry(host: String, telemetry:Seq[JsObject]) = {
+    telemetry.map( t => JsObject(
+      t.fields +
+        ("addr" -> JsString(host)) +
+        ("timestamp" -> JsNumber(new Date().getTime()))
+    )) foreach saveTelemetry
   }
 
 }
