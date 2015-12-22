@@ -1,0 +1,265 @@
+<html>
+<head>
+    <script src="jquery.js"></script>
+    <script src="heatmap.js"></script>
+    <script src="bootstrap.js"></script>
+    <script src="d3.min.js"></script>
+    <script src="typehead.js"></script>
+    <script src="gm/metricsgraphics.js"></script>
+    <script src="cubism/cubism.min.js"></script>
+    <link href="bootstrap.css" rel="stylesheet" type="text/css"></link>
+    <link href="gm/metricsgraphics.css" rel="stylesheet" type="text/css"></link>    
+    <link href="style.css" rel="stylesheet" type="text/css"></link>
+
+<style>
+body {
+  font-family: "Helvetica Neue", Helvetica, sans-serif;
+  margin: 30px auto;
+  width: 1440px;
+  position: relative;
+}
+
+header {
+  padding: 6px 0;
+}
+
+.group {
+  margin-bottom: 1em;
+}
+
+.axis {
+  font: 10px sans-serif;
+ /* position: fixed;*/
+  pointer-events: none;
+  z-index: 2;
+}
+
+.axis text {
+  -webkit-transition: fill-opacity 250ms linear;
+}
+
+.axis path {
+  display: none;
+}
+
+.axis line {
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis.top {
+  background-image: linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -o-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -moz-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -webkit-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -ms-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  top: 0px;
+  padding: 0 0 24px 0;
+}
+
+.axis.bottom {
+  background-image: linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -o-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -moz-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -webkit-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -ms-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  /*bottom: 0px;*/
+  padding: 24px 0 0 0;
+}
+
+.horizon {
+  border-bottom: solid 1px #000;
+  overflow: hidden;
+  position: relative;
+}
+
+.horizon {
+  border-top: solid 1px #000;
+  border-bottom: solid 1px #000;
+}
+
+.horizon + .horizon {
+  border-top: none;
+}
+
+.horizon canvas {
+  display: block;
+}
+
+.horizon .title,
+.horizon .value {
+  bottom: 0;
+  line-height: 30px;
+  margin: 0 6px;
+  position: absolute;
+  text-shadow: 0 1px 0 rgba(255,255,255,.5);
+  white-space: nowrap;
+}
+
+.horizon .title {
+  left: 0;
+}
+
+.horizon .value {
+  right: 0;
+}
+
+.line {
+  background: #000;
+  opacity: .2;
+  z-index: 2;
+}
+
+@media all and (max-width: 1439px) {
+  body { margin: 0px auto; }
+  .axis { position: static; }
+  .axis.top, .axis.bottom { padding: 0; }
+}
+    
+</style>
+
+</head>
+    
+<body>
+    
+    <div class="metrics">
+    </div>
+    
+</body>    
+
+<script>
+    
+function TelemetryPlotter(selector, from, to) {
+    
+    var context = cubism.context()
+        .step(5000)
+        .size(1440);
+
+    /*d3.select(selector).selectAll(".axis")
+        .data(["bottom"])
+        .enter().append("div")
+        .attr("class", function(d) { return d + " axis"; })
+        .each(function(d) { d3.select(this).call(context.axis().ticks(12).orient(d)); });*/
+
+    d3.select(selector).append("div")
+        .attr("class", "rule")
+        .call(context.rule());
+
+    d3.select(selector).selectAll(".horizon")
+        .data([latency()])
+    .enter().insert("div", ".caption")
+        .attr("class", "horizon")
+        .call(context.horizon().extent([0, 10000]));
+    
+    d3.select(selector).append("div").attr("class", "caption").text(from);
+    
+    d3.select(selector).selectAll("empty")
+        .data([telemetry("CPU", from), telemetry("MEM", from)])
+    .enter().append("div", ".caption")
+        .attr("class", "horizon")
+        .call(context.horizon().extent([0, 100]));
+    
+    d3.select(selector).append("div").attr("class", "caption").text(to);
+    
+    d3.select(selector).selectAll("empty")
+        .data([telemetry("CPU", to), telemetry("MEM", to)])
+    .enter().append("div", ".caption")
+        .attr("class", "horizon")
+        .call(context.horizon().colors(["#ecf5fb", "#B7DCC3"]));
+    
+    d3.select(selector).selectAll(".axis")
+        .data(["bottom"])
+        .enter().append("div")
+        .attr("class", function(d) { return d + " axis"; })
+        .each(function(d) { d3.select(this).call(context.axis().ticks(12).orient(d)); });
+    
+    context.on("focus", function(i) {
+        d3.selectAll(".value").style("right", i == null ? null : context.size() - i + "px");
+    });
+    
+
+    function latency() {
+        var last, values = [];
+        return context.metric(function(start, stop, step, callback) {
+            if (isNaN(last)) last = +start;
+            stop = +stop;  
+            var query = encodeURI(JSON.stringify({ source: from, dest: to, time: { $gt: last, $lte: stop } }));
+            var sort = encodeURI(JSON.stringify({ time: -1 }));
+        
+            $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort, function(data) {
+                var ltn = data.map(function(item) { 
+                    return {
+                        x: item.time,
+                        y: item.pingTotal
+                    }
+                }).reverse();
+                values = toTs(last, stop, step, ltn, values);
+                last = stop;
+                callback(null, values = values.slice((start - stop) / step));    
+            }).fail(function() {
+                callback("Error", [0]);    
+            });
+        }, "Latency");
+    }
+    
+    function telemetry(dataType, host) {
+        var last, values = [];
+        return context.metric(function(start, stop, step, callback) {
+            if (isNaN(last)) last = +start;
+            stop = +stop;  
+            var query = encodeURI(JSON.stringify({ addr: host, timestamp: { $gt: last, $lte: stop }  }));
+            var sort = encodeURI(JSON.stringify({ timestamp: -1 }));
+            $.getJSON("http://localhost:9000/db/telemetry?q=" + query + "&sort=" + sort, function(data) {
+                var ltn = data.map(dataMapper(dataType)).reverse();
+                values = toTs(last, stop, step, ltn, values);
+                last = stop;
+                callback(null, values = values.slice((start - stop) / step));    
+            }).fail(function() {
+                callback("Error", [0]);    
+            });
+        }, dataType);
+    }
+    
+    function dataMapper(dataType) {
+        if (dataType == "CPU") {
+            return function(item) {
+                return {
+                    x: item.timestamp,
+                    y: Math.floor(item.cpu * 100)
+                }
+            }
+        } else {
+            return function(item) {
+                return {
+                    x: item.timestamp,
+                    y: Math.floor(item.memory)
+                }
+            }
+        }
+    }
+    
+    function toTs(start, stop, step, arr, metrics) {
+        while( start < stop ) {
+            var endOfPArt = start + step;
+            var max = 0;
+            var threshold;
+            while ( !!(threshold = arr.shift()) && threshold.x <= endOfPArt ) {
+                if ( max < threshold.y ) max = threshold.y;
+            }
+        
+            metrics.push(max);  
+            start += step;
+        }
+        return metrics;
+    }   
+    
+    this.stop = function() {
+        context.stop();
+    }
+}    
+
+var ctx = new TelemetryPlotter("body", "10.0.1.5", "10.0.1.4");
+    
+</script>
+
+</html>

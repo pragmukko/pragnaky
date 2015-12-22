@@ -1,0 +1,208 @@
+<htm>
+
+<head>
+    <script src="jquery.js"></script>
+    <script src="heatmap.js"></script>
+    <script src="bootstrap.js"></script>
+    <script src="d3.min.js"></script>
+    <script src="typehead.js"></script>
+    <script src="cubism/cubism.min.js"></script>
+    <script src="cubism.telemetry.js"></script>
+    <link href="bootstrap.css" rel="stylesheet" type="text/css"></link>
+    <link href="gm/metricsgraphics.css" rel="stylesheet" type="text/css"></link>    
+    <link href="style.css" rel="stylesheet" type="text/css"></link>
+
+    <style>
+        
+        #canv_holder {
+            width: 400px;
+            height: 400px;
+            overflow: hidden;
+            margin-right: 20px;
+            float: right;
+        }
+        #line-chart {
+            position: relative;
+            margin-top: 30px;
+        }
+        .viz-title {
+            color: #666666;
+            font-size: 200%;    
+        }
+        header {
+            padding-left: 50px;
+            border-bottom-color: #f2f2f2;
+            border-bottom-width: 1;
+            border-top-color: #990000;
+            border-top-width: 3;
+            border-bottom-style: solid;
+            border-top-style: solid;
+        }
+        header h3 {
+            font-weight: 100; 
+            font-size: 21px;
+            color: #333333;
+            margin: 10;
+        }
+        .search-box {
+            font-size : 14px;  line-height : 24px;  letter-spacing : 0.49px;
+            border: none;
+        }
+        .search-box-holder {
+            font-size: 0;
+            margin: 20px;
+        }
+        .to {
+            padding-left: 10px; 
+        }
+        .from {
+            padding-left: 10px; 
+        }
+        .telemetry-label {
+            position: relative;
+            top: -20;
+            left: 20;
+            color: #666666;
+        }
+        .search-box-brd {
+            display:inline-block;
+            border-style: solid;
+            border-width: 1;
+            border-color: #999999;
+            height: 28;
+            width: 170;
+        }
+        .circle-arrow {
+            display: inline-block;
+            border-style: solid;
+            border-width: 1;
+            border-color: #999999;
+            color: #999999;
+            width: 20;
+            height: 20;
+            position: relative;
+            left: -180;
+            background: #fff;
+            font-size: 14px;
+            border-radius: 10px;
+            top: 1px;
+        }
+        
+    </style>
+</head>
+
+<body>
+    <header>
+        <h3><img style="margin-left: 25px; margin-right: 25px" src="img/Cisco_logo_2006.png" height="60"> <span>Latency Monitoring System</span></h3>
+    </header>
+    
+    <div style="position: absolute;">
+        <div class="search-box-holder">
+            <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
+            <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
+            <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+        </div>
+    </div>
+    <div>
+        <div id="canv_holder">
+        </div>
+    </div>
+    <div style="clear: both;">
+        <div class="telemetry-panel">
+        </div>
+    </div>
+    
+    
+</body>
+    
+<script>
+  
+    var latencyPlotter;  
+
+    function authority() {
+        var url = window.location.href;
+        if (url.startsWith("file")) {
+            return "http://localhost:9000"
+        } 
+        return ""
+    }
+    
+    function updateData(callback) {  
+        $.getJSON(authority() + "/nodes", function(nodes) {
+            var nodesArr = nodes.map(function(item){ return item._id.addr; });
+        
+            $.getJSON(authority() + "/edges", function(edges) {
+                var edgesArr = edges.map( function(item) {
+                    return {
+                        from: item._id.source,
+                        to: item._id.dest,
+                        value: item.last,
+                        ts: item.timestamp
+                    }
+                } );
+            
+                callback(nodesArr, edgesArr);
+            
+            } );
+        
+        }).fail(function( jqxhr, textStatus, error ) {
+            var err = textStatus + ", " + error;
+            console.log( "Request Failed: " + err );
+        });
+    };
+    
+    
+    function selectFromList() {
+        var from = $('.from').val();
+        var to = $('.to').val();
+        
+        if (!!from && !!to) {
+            showTelemetry(from, to);
+            heatmap.select(from, to);
+        }
+    }
+    
+    function showTelemetry(from, to) {
+        if (!!latencyPlotter) {
+            latencyPlotter.stop();
+            $(".telemetry-panel").hide();
+            $(".telemetry-panel").empty();
+        }
+        latencyPlotter = new TelemetryPlotter(".telemetry-panel", from, to);
+        $(".telemetry-panel").show("fast");
+    }
+    
+    var heatmap = new Heatmap("#canv_holder", 
+        {
+            size: 400, 
+            onclick: function(from, to) {
+                $(".from").val(from);
+                $(".to").val(to);
+                showTelemetry(from, to);
+            } 
+        }
+    );
+    
+    var oldNodes = "";
+    
+    function workLoop() {
+        updateData(function(nodes, edges) {
+            heatmap.update(nodes, edges);
+            if ( oldNodes !== nodes.toString() ) {
+                $(".typehead").typeahead({source: nodes, afterSelect: selectFromList});
+                oldNodes = nodes.toString();
+            }
+            setTimeout(workLoop, 5000);
+        });
+    }
+    
+    //$(".typehead").typeahead();
+    
+    $('.telemetry-panel').hide();
+    
+    workLoop();
+    
+    
+</script>
+    
+</htm>
