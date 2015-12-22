@@ -1,50 +1,142 @@
-.table-header-rotated th.row-header{
-  width: auto;
+/* font-family: "FiraSansRegular"; */
+@font-face {
+    font-family: "FiraSansRegular";
+    src: url("/fonts/FiraSansRegular/FiraSansRegular.eot");
+    src: url("/fonts/FiraSansRegular/FiraSansRegular.eot?#iefix")format("embedded-opentype"),
+    url("/fonts/FiraSansRegular/FiraSansRegular.woff") format("woff"),
+    url("/fonts/FiraSansRegular/FiraSansRegular.ttf") format("truetype");
+    font-style: normal;
+    font-weight: normal;
+}
+/* font-family: "FiraSansBold"; */
+@font-face {
+    font-family: "FiraSansBold";
+    src: url("/fonts/FiraSansBold/FiraSansBold.eot");
+    src: url("/fonts/FiraSansBold/FiraSansBold.eot?#iefix")format("embedded-opentype"),
+    url("/fonts/FiraSansBold/FiraSansBold.woff") format("woff"),
+    url("/fonts/FiraSansBold/FiraSansBold.ttf") format("truetype");
+    font-style: normal;
+    font-weight: normal;
+}
+/* font-family: "FiraSansItalic"; */
+@font-face {
+    font-family: "FiraSansItalic";
+    src: url("/fonts/FiraSansItalic/FiraSansItalic.eot");
+    src: url("/fonts/FiraSansItalic/FiraSansItalic.eot?#iefix")format("embedded-opentype"),
+    url("/fonts/FiraSansItalic/FiraSansItalic.woff") format("woff"),
+    url("/fonts/FiraSansItalic/FiraSansItalic.ttf") format("truetype");
+    font-style: normal;
+    font-weight: normal;
+}
+/* font-family: "FiraSansBoldItalic"; */
+@font-face {
+    font-family: "FiraSansBoldItalic";
+    src: url("/fonts/FiraSansBoldItalic/FiraSansBoldItalic.eot");
+    src: url("/fonts/FiraSansBoldItalic/FiraSansBoldItalic.eot?#iefix")format("embedded-opentype"),
+    url("/fonts/FiraSansBoldItalic/FiraSansBoldItalic.woff") format("woff"),
+    url("/fonts/FiraSansBoldItalic/FiraSansBoldItalic.ttf") format("truetype");
+    font-style: normal;
+    font-weight: normal;
 }
 
-.table-header-rotated td{
-  width: 25px;
-  vertical-align: middle;
-  text-align: center;
+.group {
+  margin-bottom: 1em;
 }
 
-.table-header-rotated th.rotate-45{
-  height: 80px;
-  width: 25px;
-  min-width: 25px;
-  max-width: 25px;
-  position: relative;
-  vertical-align: bottom;
-  padding: 0;
-  font-size: 12px;
-  line-height: 0.8;
+.axis {
+  font: 10px sans-serif;
+ /* position: fixed;*/
+  pointer-events: none;
+  z-index: 2;
 }
 
-.table-header-rotated th.rotate-45 > div{
-  position: relative;
+.axis text {
+  -webkit-transition: fill-opacity 250ms linear;
+}
+
+.axis path {
+  display: none;
+}
+
+.axis line {
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis.top {
+  background-image: linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -o-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -moz-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -webkit-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -ms-linear-gradient(top, #fff 0%, rgba(255,255,255,0) 100%);
   top: 0px;
-  left: 40px; /* 80 * tan(45) / 2 = 40 where 80 is the height on the cell and 45 is the transform angle*/
-  height: 100%;
-  -ms-transform:skew(-45deg,0deg);
-  -moz-transform:skew(-45deg,0deg);
-  -webkit-transform:skew(-45deg,0deg);
-  -o-transform:skew(-45deg,0deg);
-  transform:skew(-45deg,0deg);
-  overflow: hidden;
+  padding: 0 0 24px 0;
 }
 
-.table-header-rotated th.rotate-45 span {
-  -ms-transform:skew(45deg,0deg) rotate(315deg);
-  -moz-transform:skew(45deg,0deg) rotate(315deg);
-  -webkit-transform:skew(45deg,0deg) rotate(315deg);
-  -o-transform:skew(45deg,0deg) rotate(315deg);
-  transform:skew(45deg,0deg) rotate(315deg);
+.axis.bottom {
+  background-image: linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -o-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -moz-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -webkit-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  background-image: -ms-linear-gradient(bottom, #fff 0%, rgba(255,255,255,0) 100%);
+  /*bottom: 0px;*/
+  padding: 24px 0 0 0;
+}
+
+.horizon {
+  border-bottom: solid 1px #000;
+  overflow: hidden;
+  position: relative;
+}
+
+.horizon {
+  border-top: solid 1px #cccccc;
+  border-bottom: solid 1px #cccccc;
+}
+
+.horizon + .horizon {
+  border-top: none;
+}
+
+.horizon canvas {
+  display: block;
+}
+
+.horizon .title,
+.horizon .value {
+  bottom: 0;
+  line-height: 30px;
+  margin: 0 6px;
   position: absolute;
-  bottom: 30px; /* 40 cos(45) = 28 with an additional 2px margin*/
-  left: -25px; /*Because it looked good, but there is probably a mathematical link here as well*/
-  display: inline-block;
-  // width: 100%;
-  width: 85px; /* 80 / cos(45) - 40 cos (45) = 85 where 80 is the height of the cell, 40 the width of the cell and 45 the transform angle*/
-  text-align: left;
-  // white-space: nowrap; /*whether to display in one line or not*/
+  text-shadow: 0 1px 0 rgba(255,255,255,.5);
+  white-space: nowrap;
+}
+
+.horizon .title {
+  left: 0;
+}
+
+.horizon .value {
+  right: 0;
+}
+
+.line {
+  background: #000;
+  opacity: .2;
+  z-index: 2;
+}
+
+@media all and (max-width: 1439px) {
+  body { margin: 0px auto; }
+  .axis { position: static; }
+  .axis.top, .axis.bottom { padding: 0; }
+}
+
+.caption {
+    font-size : 10px; letter-spacing : 0.28px;
+    padding-left: 30px;
+}
+
+.green-background {
+    background: #ecf5fb;
 }
