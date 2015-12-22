@@ -51,7 +51,7 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
           //println(s"Got response with hosts: ${x.utf8String}")
           //TODO YI add exception handling
           val hosts = x.utf8String.parseJson.asInstanceOf[JsArray].elements.collect {
-            case s: JsString => s.value
+            case s: JsString if s.value != PingerNetUtils.localHost.getHostAddress && s.value != "127.0.0.1" => s.value
           }.toSet
           knownHosts send {_=>hosts}
       }
