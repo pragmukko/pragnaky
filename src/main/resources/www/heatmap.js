@@ -212,7 +212,7 @@
         function toKey(from, to) {
             var iFrom = cellsIndexes[from];
             var iTo = cellsIndexes[to];
-            if (!iFrom || !iTo) {
+            if (iFrom === undefined || iTo === undefined) {
                 return;
             }
             if ( iFrom < iTo ) {
