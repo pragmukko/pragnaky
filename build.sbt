@@ -13,7 +13,8 @@ resolvers ++= Seq(
 //import sbtassembly.AssemblyKeys._
 
 val akkaV = "2.4.1"
-val akkaStreamV = "2.0-M2"
+val akkaStreamV = "2.0"
+val swarmV = "1.2.2"
 
 lazy val common = project.in(file("common")).
   settings(
@@ -78,7 +79,7 @@ lazy val web = project.in(file("web")).
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
       "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
-      ("default"  % "swarmakka_2.11" % "1.2.1").excludeAll(
+      ("default"  % "swarmakka_2.11" % swarmV).excludeAll(
         ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
         ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
         ExclusionRule(organization="de.heikoseeberger", name="akka-sse_2.11"),
@@ -111,7 +112,7 @@ lazy val agent = project.in(file("agent")).
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
-      ("default"  % "swarmakka_2.11" % "1.2.1").exclude("org.eclipse.paho", "org.eclipse.paho.client.mqttv3").exclude("com.sandinh", "paho-akka_2.11").exclude("de.heikoseeberger", "akka-sse_2.11").exclude("org.scala-lang", "scala-compiler")
+      ("default"  % "swarmakka_2.11" % swarmV).exclude("org.eclipse.paho", "org.eclipse.paho.client.mqttv3").exclude("com.sandinh", "paho-akka_2.11").exclude("de.heikoseeberger", "akka-sse_2.11").exclude("org.scala-lang", "scala-compiler")
 
     ),
     mainClass in assembly := Some("Agent")
@@ -139,7 +140,7 @@ lazy val supervisor = project.in(file("supervisor")).
     organization := "default",
     scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
-      ("default"  % "swarmakka_2.11" % "1.2.1").excludeAll(
+      ("default"  % "swarmakka_2.11" % swarmV).excludeAll(
           ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
           ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
           ExclusionRule(organization="de.heikoseeberger", name="akka-sse_2.11"),
