@@ -49,6 +49,13 @@ function TelemetryPlotter(selector, from, to) {
         d3.selectAll(".value").style("right", i == null ? null : context.size() - i + "px");
     });
     
+     function authority() {
+        var url = window.location.href;
+        if (url.startsWith("file")) {
+            return "http://localhost:9000"
+        } 
+        return ""
+    }
 
     function latency() {
         var last, values = [];
@@ -58,7 +65,7 @@ function TelemetryPlotter(selector, from, to) {
             var query = encodeURI(JSON.stringify({ source: from, dest: to, time: { $gt: last, $lte: stop } }));
             var sort = encodeURI(JSON.stringify({ time: -1 }));
         
-            $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort, function(data) {
+            $.getJSON(authority() + "/db/latency?q=" + query + "&sort=" + sort, function(data) {
                 var ltn = data.map(function(item) { 
                     return {
                         x: item.time,
@@ -81,7 +88,7 @@ function TelemetryPlotter(selector, from, to) {
             stop = +stop;  
             var query = encodeURI(JSON.stringify({ addr: host, timestamp: { $gt: last, $lte: stop }  }));
             var sort = encodeURI(JSON.stringify({ timestamp: -1 }));
-            $.getJSON("http://localhost:9000/db/telemetry?q=" + query + "&sort=" + sort, function(data) {
+            $.getJSON(authority() + "/db/telemetry?q=" + query + "&sort=" + sort, function(data) {
                 var ltn = data.map(dataMapper(dataType)).reverse();
                 values = toTs(last, stop, step, ltn, values);
                 last = stop;

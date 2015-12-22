@@ -18,7 +18,7 @@ function updateData(nodesCallback, edgesCallback) {
         nodesCallback(nodes.map(function(item){
             return {
                 id: item._id.addr,
-                label: item._id.addr,
+              //  label: item._id.addr,
                 color: getColor(item.last, item.cpu)
                 
             }
