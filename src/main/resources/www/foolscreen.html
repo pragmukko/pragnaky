@@ -46,7 +46,7 @@
         }
         .search-box-holder {
             font-size: 0;
-            margin: 20px;
+            display: inline-block;
         }
         .to {
             padding-left: 10px; 
@@ -59,6 +59,19 @@
             top: -20;
             left: 20;
             color: #666666;
+        }
+        .telemetry-panel-holder {
+            width: 300px;
+            position: absolute;
+            top: 60px;
+            left: 20px;
+        }
+        .telemetry-panel {
+            width: 300px;
+            position: relative;
+            left: -100;
+            z-index: 10;
+            background: #fff;
         }
         .search-box-brd {
             display:inline-block;
@@ -89,8 +102,15 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            width: 400px;
-            z-index: 1000;
+            width: 650px;
+            z-index: 10;
+        }
+        .gradient-box {
+            display: inline-block;
+            width: 200px;
+            position: relative;
+            top: 5;
+            background: #ffffff;
         }
         
     </style>
@@ -112,20 +132,15 @@
                         <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
                         <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
                     </div>
-                    <div class="telemetry-panel" style="margin-top: 50px; padding-right: 40px; ">
+                    <div class="gradient-box"></div>
+                </div>
+                <div class="telemetry-panel-holder">
+                    <div class="telemetry-panel">
                     </div>
                 </div>
-        </div>
-        </div>
-        <!--<div class="col-md-7">
-            <div class="search-box-holder">
-                <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
-                <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
-                <div class="circle-arrow"><span style="position: relative; top: -2; left: 2;">&rarr;</span></div>
+
             </div>
-            <div class="telemetry-panel" style="margin-top: 50px; padding-right: 40px; ">
-            </div>
-        </div>-->
+        </div>
     
     
 </body>
@@ -187,6 +202,15 @@
         $(".telemetry-panel").show("fast");
     }
     
+    function hideTelemetry() {
+        if (!!latencyPlotter) {
+            latencyPlotter.stop();
+            latencyPlotter = undefined;
+        }
+        $(".telemetry-panel").hide();
+        $(".telemetry-panel").empty();
+    }
+    
     var windowWidth = window.innerWidth
         || document.documentElement.clientWidth
         || document.body.clientWidth;
@@ -205,9 +229,10 @@
             onclick: function(from, to) {
                 $(".from").val(from);
                 $(".to").val(to);
-                showTelemetry(from, to);
+                showTelemetry(from, to);    
             } 
-        }
+        },
+        ".gradient-box"
     );
     
     var oldNodes = "";
@@ -225,7 +250,7 @@
     
     //$(".typehead").typeahead();
     
-    $('.telemetry-panel').hide();
+    hideTelemetry();
     
     workLoop(heatmap);
     

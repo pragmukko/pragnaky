@@ -1,8 +1,8 @@
 function TelemetryPlotter(selector, from, to) {
     
     var context = cubism.context()
-        .step(3600000 / 360)
-        .size(360);
+        .step(3600000 / 300)
+        .size(300);
 
     /*d3.select(selector).selectAll(".axis")
         .data(["bottom"])
@@ -41,7 +41,7 @@ function TelemetryPlotter(selector, from, to) {
         .data(["bottom"])
         .enter().append("div")
         .attr("class", function(d) { return d + " axis"; })
-        .each(function(d) { d3.select(this).call(context.axis().ticks(12).orient(d)); });
+        .each(function(d) { d3.select(this).call(context.axis().ticks(3).orient(d)); });
     
     d3.select(selector).insert("div", ".horizon").attr("class", "caption").html(from + " &rarr; " + to);
     
