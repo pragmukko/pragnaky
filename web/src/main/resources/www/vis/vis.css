@@ -323,6 +323,8 @@ input.vis-configuration.vis-config-range:focus::-ms-fill-upper {
   margin: 0;
 
   box-sizing: border-box;
+    font-size: 12px;
+    
 }
 
 .vis-panel.vis-center,

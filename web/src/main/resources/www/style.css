@@ -1,10 +1,10 @@
 /* font-family: "FiraSansRegular"; */
 @font-face {
     font-family: "FiraSansRegular";
-    src: url("/fonts/FiraSansRegular/FiraSansRegular.eot");
-    src: url("/fonts/FiraSansRegular/FiraSansRegular.eot?#iefix")format("embedded-opentype"),
-    url("/fonts/FiraSansRegular/FiraSansRegular.woff") format("woff"),
-    url("/fonts/FiraSansRegular/FiraSansRegular.ttf") format("truetype");
+    src: url("fonts/FiraSansRegular/FiraSansRegular.eot");
+    src: url("fonts/FiraSansRegular/FiraSansRegular.eot?#iefix")format("embedded-opentype"),
+    url("fonts/FiraSansRegular/FiraSansRegular.woff") format("woff"),
+    url("fonts/FiraSansRegular/FiraSansRegular.ttf") format("truetype");
     font-style: normal;
     font-weight: normal;
 }

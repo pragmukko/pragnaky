@@ -3,13 +3,7 @@ function getColor(time, cpu) {
     if ( time < treshold ) {
         return "#c0c0c0"
     }
-    if ( cpu < 0.50 ) {
-        return "#72BDF2"
-    }
-    if (cpu < 0.75) {
-        return "#E3C232"
-    }
-    return "#E34F32"    
+    return "#9999ff"    
 }
 
 function updateData(nodesCallback, edgesCallback) {
@@ -25,11 +19,20 @@ function updateData(nodesCallback, edgesCallback) {
         }));
         
         $.getJSON("http://localhost:9000/edges", function(edges) {
+            var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
             edgesCallback( edges.map( function(item) {
+                var idarr = [item._id.source, item._id.dest ].sort();
                 return {
-                    id: item._id.source + "_" + item._id.dest, 
+                    id: idarr[0] + "_" + idarr[1], 
                     from: item._id.source,
-                    to: item._id.dest
+                    to: item._id.dest,
+                    length: 150 + Math.floor((item.last / max) * ( 2000 - 150 ) ),
+                   // hidden: true,
+                    color: {
+                        color: "rgba(100, 100, 100, 0.1)",
+                        hover: "rgba(100, 100, 100, 1)",
+                        highlight: "#6699ff"
+                    }
                 }
             } ) );
         } );
@@ -83,11 +86,20 @@ function addItem(data, dataSet) {
 }
 
 function LatencyVisualizer(from, to) {
-    $('#latency_viz').show();
+    $('.telemetry-history').show("fast");
     var latencyContainer = $('#latency_viz')[0];
     var latencyDataset = new vis.DataSet();
-    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, {height: "300px", width: "100%", interpolation: false});
-    
+    var options = {
+        height: "25vh", 
+        width: "100%", 
+        interpolation: false,
+        drawPoints: false,
+        shaded: true,
+        dataAxis : {
+            showMinorLabels: false
+        }
+    };
+    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, options);
     var query = encodeURI(JSON.stringify({ source: from, dest: to }));
     var sort = encodeURI(JSON.stringify({ time: -1 }));
     var isRunning = true;
@@ -127,7 +139,7 @@ function LatencyVisualizer(from, to) {
     this.stop = function() {
         isRunning = false;
         graph2d.destroy();
-        $('#latency_viz').hide();
+        $('.telemetry-history').hide();
     }
     
 }
@@ -146,54 +158,76 @@ $(function() {
     };
     var options = {
         edges: {
-            smooth: false
-        }
+            smooth: false,
+        },
+         physics: {
+                barnesHut: {
+                    "gravitationalConstant": -1510,
+                    "springLength": 60,
+                    "springConstant": 0.615,
+                    "damping": 1
+                },
+                "maxVelocity": 150,
+                "minVelocity": 0.75,
+                stabilization: {
+                    iterations: 20
+                }
+            }
     };
     var network = new vis.Network(container, data, options);
-        
-    var cpu_ctx = $("#cpu_cnv")[0].getContext("2d");
-    var mem_ctx = $("#mem_cnv")[0].getContext("2d");
     
-    var data = [
-        {
-            value: 0,
-            color: "#46BFBD",
-            highlight: "#5AD3D1",
-            label: "CPU %"
-        },
-        {
-            value: 100,
-            color: "#ffffff",
-            color: "#ffffff"
-        }
-    ];
-    var cpuChart = new Chart(cpu_ctx).Doughnut(data, { showTooltips : false, percentageInnerCutout: 70 });
-    var memChart = new Chart(mem_ctx).Doughnut(data, { showTooltips : false, percentageInnerCutout: 70 });
-    
-    
-    network.on("click", function(e) {
-        if (!!latencyVisualizer) {
+    function showLatencyTelemetry(from, to) {
+          if (!!latencyVisualizer) {
             latencyVisualizer.stop();
             latencyVisualizer = undefined;
         }
-        $('#telemetry_snapshot').hide();
+        latencyVisualizer = new LatencyVisualizer(from, to);
+    }
+    
+    network.on("click", function(e) {
         if ( !!e.edges && e.edges.length > 0 && !e.nodes.length ) {
             var edgeId = e.edges[0];
             var edge = edges.get(edgeId);
-            latencyVisualizer = new LatencyVisualizer(edge.from, edge.to);
-        }
-        if (e.nodes.length > 0) { 
-            $('#telemetry_snapshot').show();
-            var nodeId = e.nodes[0];
-            var node = nodes.get(nodeId);
-            glSelectedNode = node.label;
-            updateTelemetry(cpuChart, node.label);
+            showLatencyTelemetry(edge.from, edge.to);
         }
     });
     
+    var animationOptions = {
+        offset: {x: 0, y: 0},
+        duration: 1000,
+        easingFunction: "easeInOutQuad"
+      
+    }
+    
+    function selectFromList(item) {
+        network.selectNodes([item]);
+        var from = $('.from').val();
+        var to = $('.to').val();
+        
+        if (!!from && !!to) {
+            var idarr = [from, to].sort();
+            network.selectEdges([idarr[0] + "_" + idarr[1]]);
+            showLatencyTelemetry(from, to)
+        }
+    }
+    
+    var oldNodes = "";
+    updateData(
+        function(data) { 
+            addItem(data, nodes); 
+            if ( oldNodes !== data.toString() ) {
+                $(".typehead").typeahead({source: data.map(function(item){ return item.id; }), afterSelect: selectFromList});
+                oldNodes = data.toString();
+            }
+           // network.fit({animation: animationOptions}); 
+        }, 
+        function(data) { 
+            addItem(data, edges); 
+            network.fit({animation: animationOptions}); 
+    });
+    
     setInterval(function() { 
-        updateTelemetry(cpuChart, memChart, glSelectedNode);
-        updateData(function(data) { addItem(data, nodes); },function(data) { addItem(data, edges); });
-    }, 1000);
+        updateData(function(data) { addItem(data, nodes); }, function(data) { addItem(data, edges); /*network.fit();*/ });
+    }, 10000);
     
 });

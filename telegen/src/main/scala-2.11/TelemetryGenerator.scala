@@ -24,8 +24,8 @@ class TelemetryWriter extends MongoMetricsDAL{
   implicit val executionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 
   //val hosts = List("10.0.1.10", "10.0.1.13", "10.0.1.15", "10.0.1.25")
-  val hosts = (1 to 100) map( "10.0.1." + _ )
-  val slow = List("10.0.1.5", "10.0.1.17")
+  val hosts = (1 to 30) map( "10.0.1." + _ )
+  val slow = List("10.0.1.5", "10.0.1.7", "10.0.1.4", "10.0.1.3", "10.0.1.6")
   val hlen = hosts.length
   val rnd = Random
 
@@ -45,10 +45,10 @@ class TelemetryWriter extends MongoMetricsDAL{
   }
 
   def getLatency(h:String*) = {
-    if (h.exists(slow.contains))
-      rnd.nextInt(5000)
-    else
-      rnd.nextInt(1000)
+    h.count(slow.contains) match {
+      case 1 => rnd.nextInt(5000)
+      case _ => rnd.nextInt(100)
+    }
   }
 
   def getHosts(): (String, String) = {
