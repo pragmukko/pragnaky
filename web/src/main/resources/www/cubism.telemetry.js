@@ -53,7 +53,7 @@ function TelemetryPlotter(selector, from, to) {
         var url = window.location.href;
         if (url.startsWith("file")) {
             return "http://localhost:9000"
-        } 
+        }
         return ""
     }
 
@@ -121,8 +121,9 @@ function TelemetryPlotter(selector, from, to) {
         while( start < stop ) {
             var endOfPArt = start + step;
             var max = 0;
-            var threshold;
-            while ( !!(threshold = arr.shift()) && threshold.x <= endOfPArt ) {
+            var theshold;
+            while ( !!(threshold = arr[0]) && threshold.x <= endOfPArt ) {
+                arr.shift();
                 if ( max < threshold.y ) max = threshold.y;
             }
         
