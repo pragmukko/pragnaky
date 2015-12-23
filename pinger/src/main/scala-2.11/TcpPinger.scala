@@ -238,21 +238,22 @@ class TcpPingResponderNioSync extends Thread with PingerConfigProvider {
 
 }
 
-class TcpPingerNioSync(replyTo: ActorRef) extends PingerConfigProvider with PingNio {
+class TcpPingerNioSync(replyTo: ActorRef) extends PingerConfigProvider with PingNio with Pinger {
 
   val pongPayloadSize = config.getInt("pinger.pong-payload")
   val pingPayloadSize = config.getInt("pinger.ping-payload")
 
   def ping(host: InetAddress) = {
+    var channel: Option[SocketChannel] = None
     try {
       val buf = ByteBuffer.allocate(Math.max(pongPayloadSize, pingPayloadSize) + 17)
-      val channel = SocketChannel.open(new InetSocketAddress(host, config.getInt("pinger.port")))
+      channel = Some(SocketChannel.open(new InetSocketAddress(host, config.getInt("pinger.port"))))
       buf.put('>'.toByte).putLong(System.currentTimeMillis()).put(Array.ofDim[Byte](pingPayloadSize)).flip()
-      channel.write(buf)
+      channel.get.write(buf)
       buf.clear()
       var bytesRead = 0
       while ( {
-        bytesRead += channel.read(buf); bytesRead
+        bytesRead += channel.get.read(buf); bytesRead
       } < 17 + pongPayloadSize) {}
 
       println(s"C:pong read: $bytesRead from $host")
@@ -261,14 +262,15 @@ class TcpPingerNioSync(replyTo: ActorRef) extends PingerConfigProvider with Ping
         replyTo ! readPing(buf, host)
       }
       buf.clear()
-      channel.close()
     } catch {
-      case io: IOException => println(s"C:IO error: ${io.getLocalizedMessage}")
+      case io: IOException => println(s"C[${host.getHostAddress}}]:IO error: ${io.getLocalizedMessage}")
+    } finally {
+      channel.foreach(_.close())
     }
   }
 }
 
-class TcpPingerNio(replyTo: ActorRef) extends PingerConfigProvider with PingNio {
+class TcpPingerNio(replyTo: ActorRef) extends PingerConfigProvider with PingNio with Pinger {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def ping(host: InetAddress) = {
@@ -284,6 +286,9 @@ class TcpPingerNio(replyTo: ActorRef) extends PingerConfigProvider with PingNio 
 
 }
 
+trait Pinger {
+  def ping(host: InetAddress): Any
+}
 trait PingNio {
   def accept(server: AsynchronousServerSocketChannel): Future[AsynchronousSocketChannel] = {
     val p = Promise[AsynchronousSocketChannel]

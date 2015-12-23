@@ -56,14 +56,16 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
 
   val knownHosts = Agent(Set.empty[String])
   val knownHostCancels = Agent(Map.empty[String, Cancellable])
+  private val hostInactivityTimeout: FiniteDuration = config.getDuration("pinger.rest-inactivity-timeout")
 
   private def updateHost(host: String) = {
-    knownHostCancels().get(host).foreach(_.cancel())
-    knownHostCancels send {_ - host}
     knownHosts send { _ + host}
-    val timeout: FiniteDuration = config.getDuration("pinger.rest-inactivity-timeout")
-    val hostCancel = system.scheduler.scheduleOnce(timeout) {println(s"cancelling host $host"); knownHosts send { _ - host}; knownHostCancels send {_ - host}}
-    knownHostCancels send {_ + (host -> hostCancel)}
+    val hostCancel = system.scheduler.scheduleOnce(hostInactivityTimeout) {
+      println(s"cancelling host $host ")
+      knownHosts send { _ - host}
+      knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs - host}
+    }
+    knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs + (host -> hostCancel)}
   }
 
   val routes = {

@@ -39,7 +39,7 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
       sendTelemetry()
       knownHosts().map(InetAddress.getByName).foreach(self ! PingHost(_))
 
-    case PingHost(host) => pinger.ping(host)
+    case PingHost(host) => context.actorOf(Props[PingerActor]) ! (pinger, host)
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
@@ -69,5 +69,20 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
   def sendJs(path: String, js: JsValue) = {
     val uri = s"http://${config.getString("pinger.rest.host")}:${config.getInt("pinger.rest.port")}/$path"
     http.singleRequest(HttpRequest(uri = uri, method = HttpMethods.POST, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint))).pipeTo(self)
+  }
+}
+
+class PingerActor extends Actor {
+  import scala.concurrent.{ Future, blocking }
+  implicit val exc = context.dispatcher
+  def receive = {
+    case (pinger: Pinger, host: InetAddress) =>
+      Future {
+        blocking {
+          pinger.ping(host)
+        }
+      }.onComplete(_ => self ! PoisonPill)
+
+
   }
 }
