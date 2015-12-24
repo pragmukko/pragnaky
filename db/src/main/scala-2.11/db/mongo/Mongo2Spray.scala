@@ -29,7 +29,7 @@ trait Mongo2Spray {
       BSONArray(values)
     }
 
-    private val IsoDateTime = """^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})Z$""".r
+    private val IsoDateTime = """^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3}).*$""".r
 
     private def manageDate(year: String, month: String, day: String, hour: String, minute: String, second: String, milli: String) =
       Try(BSONDateTime((new DateTime(year.toInt, month.toInt, day.toInt, hour.toInt,
@@ -44,6 +44,7 @@ trait Mongo2Spray {
     private def manageSpecials(obj: JsObject): BSONValue =
       if (obj.fields.size > 2) writeObject(obj)
       else (obj.fields.toList match {
+        case ("$date", JsNumber(n)) :: Nil => Success(BSONDateTime(n.toLong))
         case ("$oid", JsString(str)) :: Nil            ⇒ Try(BSONObjectID(Hex.decodeHex(str.toArray)))
         case ("$undefined", JsTrue) :: Nil             ⇒ Success(BSONUndefined)
         // case ("$minKey", JsNumber(n)) :: Nil if n == 1 => Success(BSONMinKey) // Bug on reactivemongo

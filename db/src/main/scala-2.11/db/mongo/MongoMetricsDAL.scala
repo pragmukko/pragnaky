@@ -1,6 +1,7 @@
 package db.mongo
 
-import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.{TimeZone, Date}
 
 import akka.actor.{Actor, ActorRef}
 import reactivemongo.api.{DefaultDB, MongoDriver}
@@ -36,11 +37,20 @@ trait MongoMetricsDAL extends Mongo2Spray {
   }
 
   def saveTelemetry(json:JsObject) = handleError {
-    telemetry.insert(json)
+    val jsDoc = JsObject( json.fields + ("creationTime" -> JsObject("$date" -> JsNumber(System.currentTimeMillis()))))
+    telemetry.insert(jsDoc)
   }
 
   def saveLatency(json:JsObject) = handleError {
-    latency.insert(json)
+    val jsDoc = JsObject( json.fields + ("creationTime" -> JsObject("$date" -> JsNumber(System.currentTimeMillis()))))
+    latency.insert(jsDoc)
+  }
+
+  def nowISODate() = {
+    val tz = TimeZone.getTimeZone("UTC")
+    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm.SSZ")
+    df.setTimeZone(tz)
+    df.format(new Date())
   }
 
   def connect(): (DefaultDB, BSONCollection, BSONCollection, BSONCollection) = {
