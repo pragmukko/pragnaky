@@ -37,8 +37,8 @@ function updateData(nodesCallback, edgesCallback) {
                     length: 300 + Math.floor((item.last / max) * ( 1000 - 300 ) ),
                     //hidden: true,
                     color: {
-                        color: "rgba(200, 200, 200, 0.1)",
-                        hover: "rgba(100, 100, 100, 1)",
+                        color: "rgba(100, 100, 100, 0.1)",
+                        hover: "rgba(100, 100, 255, 0.5)",
                         highlight: "#6699ff"
                     }
                 }
