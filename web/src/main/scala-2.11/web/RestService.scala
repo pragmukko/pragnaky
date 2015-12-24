@@ -116,7 +116,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
               }
             }
             complete {
-              knownHosts.future
+              knownHosts.future.map(hosts => hosts -- (remoteAddr.getAddress map {_.getHostAddress}).toSet)
             }
           }
         }
@@ -130,7 +130,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
               case _ => println(s"Unknown latency JS value: $value")
             }
             complete {
-              knownHosts.future
+              knownHosts.future.map(hosts => hosts -- (remoteAddr.getAddress map {_.getHostAddress}).toSet)
             }
           }
         }
