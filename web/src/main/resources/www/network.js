@@ -8,6 +8,8 @@ function getColor(time, cpu) {
 
 function updateData(nodesCallback, edgesCallback) {
     
+    console.log("111");
+    
     $.getJSON("http://localhost:9000/nodes", function(nodes) {
         nodesCallback(nodes.map(function(item){
             return {
@@ -26,8 +28,8 @@ function updateData(nodesCallback, edgesCallback) {
                     id: idarr[0] + "_" + idarr[1], 
                     from: item._id.source,
                     to: item._id.dest,
-                    length: 150 + Math.floor((item.last / max) * ( 2000 - 150 ) ),
-                   // hidden: true,
+                    length: 500 + Math.floor((item.last / max) * ( 5000 - 500 ) ),
+                    //hidden: true,
                     color: {
                         color: "rgba(100, 100, 100, 0.1)",
                         hover: "rgba(100, 100, 100, 1)",
@@ -77,11 +79,8 @@ var glSelectedNode = undefined
 
 function addItem(data, dataSet) {
     data.forEach(function(item) { 
-        dataSet.update(data);
-        /*if (!dataSet.get(item.id))
-            dataSet.add(data);
-        else
-            dataSet.update(data);*/
+        if (!dataSet.get(item.id))
+            dataSet.add(item);
     });
 }
 
@@ -162,9 +161,9 @@ $(function() {
         },
          physics: {
                 barnesHut: {
-                    "gravitationalConstant": -1510,
+                    "gravitationalConstant": -15100,
                     "springLength": 60,
-                    "springConstant": 0.615,
+                    "springConstant": 0.1,
                     "damping": 1
                 },
                 "maxVelocity": 150,
@@ -226,8 +225,8 @@ $(function() {
             network.fit({animation: animationOptions}); 
     });
     
-    setInterval(function() { 
-        updateData(function(data) { addItem(data, nodes); }, function(data) { addItem(data, edges); /*network.fit();*/ });
-    }, 10000);
+    /*setInterval(function() { 
+        updateData(function(data) { addItem(data, nodes); }, function(data) { addItem(data, edges); /*network.fit();*/ //});
+   // }, 10000);*/
     
 });
