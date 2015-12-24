@@ -1,3 +1,11 @@
+  function authority() {
+        var url = window.location.href;
+        if (url.startsWith("file")) {
+            return "http://localhost:9000"
+        } 
+        return ""
+    }
+
 function getColor(time, cpu) {
     var treshold = new Date().getTime() - (60 * 1000);
     if ( time < treshold ) {
@@ -8,9 +16,7 @@ function getColor(time, cpu) {
 
 function updateData(nodesCallback, edgesCallback) {
     
-    console.log("111");
-    
-    $.getJSON("http://localhost:9000/nodes", function(nodes) {
+    $.getJSON(authority() + "/nodes", function(nodes) {
         nodesCallback(nodes.map(function(item){
             return {
                 id: item._id.addr,
@@ -20,7 +26,7 @@ function updateData(nodesCallback, edgesCallback) {
             }
         }));
         
-        $.getJSON("http://localhost:9000/edges", function(edges) {
+        $.getJSON(authority() + "/edges", function(edges) {
             var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
             edgesCallback( edges.map( function(item) {
                 var idarr = [item._id.source, item._id.dest ].sort();
@@ -51,7 +57,7 @@ function updateTelemetry(cpuChart, memChart, addr) {
     
     var query = encodeURI(JSON.stringify({ addr: addr }));
     var sort = encodeURI(JSON.stringify({ timestamp: -1 }));
-    $.getJSON("http://localhost:9000/db/telemetry?q=" + query + "&sort=" + sort + "&limit=1", function(data) {
+    $.getJSON(authority() + "/db/telemetry?q=" + query + "&sort=" + sort + "&limit=1", function(data) {
         if (!!data && data.length > 0) {
             renderTelemetry(cpuChart, memChart, data);
         }
@@ -107,7 +113,7 @@ function LatencyVisualizer(from, to) {
         if (!isRunning) {
             return;
         }
-        $.getJSON("http://localhost:9000/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
+        $.getJSON(authority() + "/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
             var ltn = data.map(function(item) { 
                return {
                    x: item.time,
