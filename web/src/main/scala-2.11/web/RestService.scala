@@ -85,12 +85,11 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
           complete {
             val col:BSONCollection = knownDbs("latency")
             import col.BatchCommands.AggregationFramework.{
-              Match, Sort, Group, Last, Ascending
+              Match, Avg, Group, Last, Max
             }
-            val mtch = Match( BSONDocument( "time" -> BSONDocument("$gte" -> (now - ( 5 * 60 * 1000 )) ) ) )
-            val sort = Sort(Ascending("time"))
-            val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))("last" -> Last("pingTotal"), "timestamp" -> Last("time"))
-            col.aggregate(mtch, List(sort, group)).map(_.documents)
+            val mtch = Match( BSONDocument( "time" -> BSONDocument("$gte" -> (now - (60 * 1000 )) ) ) )
+            val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))("last" -> Avg("pingTotal"), "timestamp" -> Max("time"))
+            col.aggregate(mtch, List(group)).map(_.documents)
           }
         }
       } ~ path("nodes") {

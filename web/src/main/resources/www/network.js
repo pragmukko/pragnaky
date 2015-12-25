@@ -20,7 +20,7 @@ function updateData(nodesCallback, edgesCallback) {
         nodesCallback(nodes.map(function(item){
             return {
                 id: item._id.addr,
-              //  label: item._id.addr,
+                label: item._id.addr,
                 color: getColor(item.last, item.cpu)
                 
             }
@@ -34,7 +34,7 @@ function updateData(nodesCallback, edgesCallback) {
                     id: idarr[0] + "_" + idarr[1], 
                     from: item._id.source,
                     to: item._id.dest,
-                    length: 300 + Math.floor((item.last / max) * ( 1000 - 300 ) ),
+                    length: 300 + Math.floor((item.last / max) * ( 2000 - 300 ) ),
                     //hidden: true,
                     color: {
                         color: "rgba(100, 100, 100, 0.1)",
@@ -92,6 +92,7 @@ function addItem(data, dataSet) {
 
 function LatencyVisualizer(from, to) {
     $('.telemetry-history').show("fast");
+    $('#telemetry-title').html(from + " &rarr; " + to);
     var latencyContainer = $('#latency_viz')[0];
     var latencyDataset = new vis.DataSet();
     var options = {
@@ -162,6 +163,12 @@ $(function() {
         edges: edges
     };
     var options = {
+        nodes: {
+            shape: "dot",
+            font: {
+                size: 10
+            }
+        },
         edges: {
             smooth: false,
         },
@@ -194,6 +201,11 @@ $(function() {
             var edgeId = e.edges[0];
             var edge = edges.get(edgeId);
             showLatencyTelemetry(edge.from, edge.to);
+            $('.from').val(edge.from);
+            $('.to').val(edge.to);
+        } else {
+            $('.from').val("");
+            $('.to').val("");
         }
     });
     
@@ -215,7 +227,7 @@ $(function() {
             showLatencyTelemetry(from, to)
         }
     }
-    
+    $('.telemetry-history').hide();
     var oldNodes = "";
     updateData(
         function(data) { 
