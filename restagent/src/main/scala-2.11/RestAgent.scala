@@ -40,6 +40,8 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
 
   context.system.scheduler.schedule(1 second, pingerInterval, self, TelemetryTick)
 
+  context.system.scheduler.scheduleOnce(2 second, self, PingTick(Nil))
+
   override def receive : Receive = {
     case TelemetryTick =>
       sendTelemetry()
@@ -51,7 +53,7 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
         case head :: rest =>
           Future {
             Try { pinger.ping(head) } recover { case th => log.error(th, "Error on ping " + head) }
-            self ! PingTick(rest)
+            context.system.scheduler.scheduleOnce(500 microseconds, self, PingTick(rest))
           }
       }
 
