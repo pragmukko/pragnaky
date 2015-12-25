@@ -73,7 +73,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
   val routes = {
     import Directives._
 
-    logRequestResult("swarm-akka") {
+    //logRequestResult("swarm-akka") {
       (path("db" / knownDbs) & parameters('q.?, 'p.?, 'sort.?, 'limit.as[Int].?)) { (db, q, p, sort, limit) =>
         get {
             complete {
@@ -142,7 +142,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
         }
       } ~
         getFromResourceDirectory("www")
-    }
+    //}
 
   }
 

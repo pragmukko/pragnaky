@@ -13,8 +13,8 @@ resolvers ++= Seq(
 //import sbtassembly.AssemblyKeys._
 
 val akkaV = "2.4.1"
-val akkaStreamV = "2.0"
-val swarmV = "1.2.2"
+val akkaStreamV = "2.0.1"
+val swarmV = "1.2.3"
 
 lazy val common = project.in(file("common")).
   settings(
