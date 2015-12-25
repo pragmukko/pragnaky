@@ -49,11 +49,13 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
 
     case PingTick(hosts) =>
       hosts match {
-        case Nil => knownHosts.foreach(x => self ! PingTick(x.toList.map(InetAddress.getByName)))
+        case Nil => knownHosts.foreach {
+          x => context.system.scheduler.scheduleOnce(1 second, self, PingTick(x.toList.map(InetAddress.getByName)))
+        }
         case head :: rest =>
           Future {
             Try { pinger.ping(head) } recover { case th => log.error(th, "Error on ping " + head) }
-            context.system.scheduler.scheduleOnce(500 microseconds, self, PingTick(rest))
+            context.system.scheduler.scheduleOnce(1 second, self, PingTick(rest))
           }
       }
 
