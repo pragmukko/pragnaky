@@ -32,7 +32,9 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
   }
   val pinger = new TcpPingerNioSync(self)
 
-  context.system.scheduler.schedule(1 second, 1 second, self, PingTick(Nil))
+  private val pingerInterval: FiniteDuration = config.getDuration("pinger.interval")
+
+  context.system.scheduler.schedule(1 second, pingerInterval, self, PingTick(Nil))
 
   override def receive : Receive = {
     case PingTick(hosts) =>
@@ -46,17 +48,19 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
       sendJs("latency", rp.toJs)
 
     case HttpResponse(StatusCodes.OK, headers, entity, _) =>
-      entity.dataBytes.runFold(ByteString(""))(_ ++ _) onSuccess {
-        case x: ByteString =>
+      entity.dataBytes.runFold(ByteString(""))(_ ++ _) onComplete {
+        case Success(x: ByteString) =>
           //println(s"Got response with hosts: ${x.utf8String}")
           //TODO YI add exception handling
           val hosts = x.utf8String.parseJson.asInstanceOf[JsArray].elements.collect {
             case s: JsString if s.value != PingerNetUtils.localHost.getHostAddress && s.value != "127.0.0.1" => s.value
           }.toSet
           knownHosts send {_=>hosts}
+        case _ => knownHosts send {_=>Set.empty[String]}
       }
     case HttpResponse(code, _, _, _) =>
       log.info("Request failed, response code: " + code)
+      knownHosts send {_=>Set.empty[String]}
   }
 
   def sendTelemetry() = {
@@ -70,6 +74,8 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
     val uri = s"http://${config.getString("pinger.rest.host")}:${config.getInt("pinger.rest.port")}/$path"
     http.singleRequest(HttpRequest(uri = uri, method = HttpMethods.POST, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint))).pipeTo(self)
   }
+
+  implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration = Duration.fromNanos(d.toNanos)
 }
 
 class PingerActor extends Actor {
