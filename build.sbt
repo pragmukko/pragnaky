@@ -7,7 +7,8 @@ scalaVersion := "2.11.7"
 resolvers ++= Seq(
   "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
   "anormcypher" at "http://repo.anormcypher.org/",
-  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
+  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/",
+  "Typesafe repository releases" at "http://repo.typesafe.com/typesafe/releases/"    
 )
 
 //import sbtassembly.AssemblyKeys._
@@ -51,7 +52,8 @@ lazy val db = project.in(file("db")).
     scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       "com.typesafe.akka"  %%  "akka-actor" % akkaV,
-      ("org.reactivemongo" %% "reactivemongo" % "0.11.8").excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
+      "com.typesafe.play" %% "play-iteratees" % "2.3.10",
+      ("org.reactivemongo" %% "reactivemongo" % "0.11.9").excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
       "joda-time" % "joda-time" % "2.9.1",
       "org.joda" % "joda-convert" % "1.8.1",
       "io.spray" %% "spray-json" % "1.3.2"

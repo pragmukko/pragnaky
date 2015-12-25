@@ -1,21 +1,31 @@
-  function authority() {
+function authority() {
         var url = window.location.href;
         if (url.startsWith("file")) {
-            return "http://localhost:9000"
+            return "http://193.105.219.176:9000"
         } 
         return ""
     }
 
-function getColor(time, cpu) {
+function getColor(time) {
     var treshold = new Date().getTime() - (60 * 1000);
     if ( time < treshold ) {
         return "#c0c0c0"
     }
-    return "#9999ff"    
+    return "#9999ff";    
+}
+
+function diferentNetwork(from, to, tokensCount) {
+    var fromTokens = from.split(".");
+    var toTokens = to.split(".");
+    for (var i = 0; i < tokensCount; i++) {
+        if ( fromTokens[i] != toTokens[i] )
+            return 1;
+    }
+    return 0;
 }
 
 function updateData(nodesCallback, edgesCallback) {
-    
+    /*
     $.getJSON(authority() + "/nodes", function(nodes) {
         nodesCallback(nodes.map(function(item){
             return {
@@ -24,17 +34,20 @@ function updateData(nodesCallback, edgesCallback) {
                 color: getColor(item.last, item.cpu)
                 
             }
-        }));
+        }));*/
         
         $.getJSON(authority() + "/edges", function(edges) {
             var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
-            edgesCallback( edges.map( function(item) {
+            var nodes = {};
+            var edgArr =edges.map( function(item) {
                 var idarr = [item._id.source, item._id.dest ].sort();
+                nodes[item._id.source] = 0;
+                nodes[item._id.dest] = 0;
                 return {
                     id: idarr[0] + "_" + idarr[1], 
                     from: item._id.source,
                     to: item._id.dest,
-                    length: 300 + Math.floor((item.last / max) * ( 2000 - 300 ) ),
+                    length: 300 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item._id.source, item._id.dest, 3) * 1000,
                     //hidden: true,
                     color: {
                         color: "rgba(100, 100, 100, 0.1)",
@@ -42,8 +55,17 @@ function updateData(nodesCallback, edgesCallback) {
                         highlight: "#6699ff"
                     }
                 }
-            } ) );
-        } );
+            } );
+            var nodesArr = [];
+            for (var n in nodes) nodesArr.push(n);
+            nodesCallback(nodesArr.map(function(item){
+                return {
+                    id: item,
+                    label: item
+                }
+            }));
+            edgesCallback(edgArr);
+       // } );
         
     }).fail(function( jqxhr, textStatus, error ) {
         var err = textStatus + ", " + error;
