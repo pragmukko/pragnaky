@@ -1,21 +1,24 @@
 import java.net.InetAddress
 
 import spray.json.JsValue
+import util.Telemetry
 import akka.actor._
 import akka.agent.Agent
+import scala.concurrent._
 import scala.concurrent.duration._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.ImplicitMaterializer
-import util.Telemetry
 
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 
 object RestAgent extends App with PingerConfigProvider {
   val system = ActorSystem()
   val agent = system.actorOf(Props[RestAgent], s"rest-actor.${PingerNetUtils.localHost.getHostAddress}")
 }
+
+case object TelemetryTick
 
 class RestAgent extends Actor with ActorLogging with PingerConfigProvider with ImplicitMaterializer with Telemetry  {
   import akka.pattern.pipe
@@ -32,14 +35,23 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
   }
   val pinger = new TcpPingerNioSync(self)
 
-  context.system.scheduler.schedule(1 second, 1 second, self, PingTick(Nil))
+  context.system.scheduler.schedule(1 second, 1 second, self, TelemetryTick)
+
+  context.system.scheduler.scheduleOnce(2 second, self, PingTick(Nil))
 
   override def receive : Receive = {
-    case PingTick(hosts) =>
+    case TelemetryTick =>
       sendTelemetry()
-      knownHosts().map(InetAddress.getByName).foreach(self ! PingHost(_))
 
-    case PingHost(host) => context.actorOf(Props[PingerActor]) ! (pinger, host)
+    case PingTick(hosts) =>
+      hosts match {
+        case Nil => knownHosts.foreach(x => self ! PingTick(x.toList.map(InetAddress.getByName)))
+        case head :: rest =>
+          Future {
+            Try { pinger.ping(head) } recover { case th => log.error(th, "Error on ping " + head) }
+            self ! PingTick(rest)
+          }
+      }
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
@@ -72,7 +84,7 @@ class RestAgent extends Actor with ActorLogging with PingerConfigProvider with I
   }
 }
 
-class PingerActor extends Actor {
+/*class PingerActor extends Actor {
   import scala.concurrent.{ Future, blocking }
   implicit val exc = context.dispatcher
   def receive = {
@@ -85,4 +97,4 @@ class PingerActor extends Actor {
 
 
   }
-}
+} */

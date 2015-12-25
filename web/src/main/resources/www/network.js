@@ -165,6 +165,7 @@ $(function() {
     var options = {
         nodes: {
             shape: "dot",
+            size: 10,
             font: {
                 size: 10
             }
