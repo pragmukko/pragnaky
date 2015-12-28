@@ -14,6 +14,12 @@ function getColor(time) {
     return "#9999ff";    
 }
 
+function getNetAddr(addr, tokensCount) {
+    tokensCount = tokens || 3;
+    var tokens = addr.split(".");
+    return tokens.slice(0, tokensCount).join(".");
+}
+
 function diferentNetwork(from, to, tokensCount) {
     var fromTokens = from.split(".");
     var toTokens = to.split(".");
@@ -47,7 +53,7 @@ function updateData(nodesCallback, edgesCallback) {
                     id: idarr[0] + "_" + idarr[1], 
                     from: item._id.source,
                     to: item._id.dest,
-                    length: 300 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item._id.source, item._id.dest, 3) * 1000,
+                    length: 300 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item._id.source, item._id.dest, 3) * 500,
                     //hidden: true,
                     color: {
                         color: "rgba(100, 100, 100, 0.1)",
@@ -61,7 +67,9 @@ function updateData(nodesCallback, edgesCallback) {
             nodesCallback(nodesArr.map(function(item){
                 return {
                     id: item,
-                    label: item
+                    label: item,
+                    group: getNetAddr(item)
+                    
                 }
             }));
             edgesCallback(edgArr);
