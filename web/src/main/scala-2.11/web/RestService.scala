@@ -58,14 +58,18 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
   val knownHostCancels = Agent(Map.empty[String, Cancellable])
   private val hostInactivityTimeout: FiniteDuration = config.getDuration("pinger.rest-inactivity-timeout")
 
-  private def updateHost(host: String) = {
-    knownHosts send { _ + host}
-    val hostCancel = system.scheduler.scheduleOnce(hostInactivityTimeout) {
-      println(s"cancelling host $host ")
-      knownHosts send { _ - host}
-      knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs - host}
+  private def updateHost(hosts: Seq[String]) = {
+    knownHosts send { _ ++ hosts}
+    for {
+      host <- hosts
+      hostCancel = system.scheduler.scheduleOnce(hostInactivityTimeout) {
+        println(s"cancelling host $host ")
+        knownHosts send { _ - host}
+        knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs - host}
+      }
+    } {
+      knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs + (host -> hostCancel)}
     }
-    knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs + (host -> hostCancel)}
   }
 
   def now = System.currentTimeMillis()
@@ -110,7 +114,7 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
             remoteAddr.getAddress map {
               _.getHostAddress
             } foreach { host =>
-              updateHost(host)
+              updateHost(Seq(host))
               value match {
                 case array: JsArray => persistTelemetry(host, array.elements.collect { case o: JsObject => o })
                 case obj: JsObject => persistTelemetry(host, Seq(obj))
@@ -125,9 +129,11 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
       } ~ path("latency") {
         post {
           (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
-            remoteAddr.getAddress map {_.getHostAddress} foreach updateHost
+            updateHost(remoteAddr.getAddress.toList map {_.getHostAddress})
+            import ping.RichPing
+            import ping.RichPingProtocol._
             value match {
-              case array: JsArray => array.elements.collect { case obj: JsObject => saveLatency(obj) }
+              case array: JsArray => array.elements.collect { case obj: JsObject => saveLatency(obj); val rp = obj.convertTo[RichPing]; updateHost(Seq(rp.source, rp.dest))  }
               case obj: JsObject => saveLatency(obj)
               case _ => println(s"Unknown latency JS value: $value")
             }

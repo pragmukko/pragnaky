@@ -1,6 +1,7 @@
+package ping
 import java.net.InetAddress
 
-import spray.json.{JsNumber, JsObject, JsString}
+import spray.json.{DefaultJsonProtocol, JsNumber, JsObject, JsString}
 
 case class PingTick(hosts:List[InetAddress])
 
@@ -16,6 +17,10 @@ case class RichPing(time: Long, source: String, dest: String, pingTo: Int, pingF
       "pingFrom" -> JsNumber(pingFrom),
       "pingTotal" -> JsNumber(pingTotal))
   )
+}
+
+object RichPingProtocol extends DefaultJsonProtocol {
+  implicit val richPingFormat = jsonFormat6(RichPing)
 }
 
 object PingStart

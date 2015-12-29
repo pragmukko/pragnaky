@@ -2,6 +2,7 @@ import java.net.InetAddress
 import java.util.Date
 
 import actors.SwarmDiscovery
+import ping.{RichPing, PingHost, PingTick}
 import util.{ConfigGenId, Messages, Telemetry}
 import Messages.Register
 import actors.Messages.{Start, DevDiscover, Unsubscribe, Subscribe}

@@ -14,6 +14,7 @@ import akka.stream.scaladsl.Tcp.{IncomingConnection, ServerBinding}
 import akka.stream.stage.{PushStage, Context, SyncDirective}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
+import ping.{RichPing, PingStart}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise, Future}

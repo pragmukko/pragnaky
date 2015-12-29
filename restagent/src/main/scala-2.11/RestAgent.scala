@@ -1,5 +1,6 @@
 import java.net.InetAddress
 
+import ping.{RichPing, PingHost, PingTick}
 import spray.json.JsValue
 import util.Telemetry
 import akka.actor._

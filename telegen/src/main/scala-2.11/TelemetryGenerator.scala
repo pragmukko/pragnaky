@@ -2,6 +2,7 @@ import java.security.SecureRandom
 import java.util.concurrent.{Executors, ExecutorService}
 
 import db.mongo.MongoMetricsDAL
+import ping.RichPing
 import spray.json._
 
 import scala.annotation.tailrec

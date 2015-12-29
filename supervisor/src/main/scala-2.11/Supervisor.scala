@@ -1,5 +1,6 @@
 import java.util.Date
 
+import ping.RichPing
 import util.{ConfigGenId, Messages}
 import Messages.{PersistenceError, Register}
 import actors.GCExtentions
