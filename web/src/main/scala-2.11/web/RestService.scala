@@ -133,8 +133,17 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
             import ping.RichPing
             import ping.RichPingProtocol._
             value match {
-              case array: JsArray => array.elements.collect { case obj: JsObject => saveLatency(obj); val rp = obj.convertTo[RichPing]; updateHost(Seq(rp.source, rp.dest))  }
-              case obj: JsObject => saveLatency(obj)
+              case array: JsArray =>
+                array.elements.collect {
+                  case obj: JsObject =>
+                    saveLatency(obj)
+                    val rp = obj.convertTo[RichPing]
+                    updateHost(Seq(rp.source, rp.dest))
+                }
+              case obj: JsObject =>
+                saveLatency(obj)
+                val rp = obj.convertTo[RichPing]
+                updateHost(Seq(rp.source, rp.dest))
               case _ => println(s"Unknown latency JS value: $value")
             }
             complete {
