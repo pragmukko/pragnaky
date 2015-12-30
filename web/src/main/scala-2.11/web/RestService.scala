@@ -13,7 +13,7 @@ import com.typesafe.config.Config
 import db.mongo.{Mongo2Spray, MongoMetricsDAL}
 import http.CorsSupport
 import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.bson.{BSONArray, BSONString, BSONDocument}
+import reactivemongo.bson.{BSONDateTime, BSONArray, BSONString, BSONDocument}
 import akka.http.scaladsl.model.StatusCodes._
 import spray.json._
 import utils.ConfigProvider
@@ -91,9 +91,9 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
             import col.BatchCommands.AggregationFramework.{
               Match, Avg, Group, Last, Max
             }
-            val mtch = Match( BSONDocument( "time" -> BSONDocument("$gte" -> (now - (60 * 1000 )) ) ) )
+            //val mtch = Match( BSONDocument( "creationTime" -> BSONDocument("$gte" -> BSONDateTime(now - (30 * 60 * 1000 )) ) ) )
             val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))("last" -> Avg("pingTotal"), "timestamp" -> Max("time"))
-            col.aggregate(mtch, List(group)).map(_.documents)
+            col.aggregate(group).map(_.documents)
           }
         }
       } ~ path("nodes") {
