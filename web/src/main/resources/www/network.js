@@ -45,7 +45,6 @@ function updateData(nodesCallback, edgesCallback) {
         $.getJSON(authority() + "/edges", function(edges) {
             var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
             var nodes = {};
-            console.log(edges);
             var edgArr =edges.map( function(item) {
                 var idarr = [item._id.source, item._id.dest ].sort();
                 nodes[item._id.source] = 0;
@@ -54,7 +53,7 @@ function updateData(nodesCallback, edgesCallback) {
                     id: idarr[0] + "_" + idarr[1], 
                     from: idarr[0],
                     to: idarr[1],
-                    length: 300 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item._id.source, item._id.dest, 3) * 300,
+                    length: 1000 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item._id.source, item._id.dest, 3) * 500,
                     //hidden: true,
                     color: {
                         color: "rgba(100, 100, 100, 0.1)",
@@ -73,7 +72,6 @@ function updateData(nodesCallback, edgesCallback) {
                     
                 }
             }));
-            console.log(edgArr);
             edgesCallback(edgArr);
        // } );
         
@@ -207,9 +205,9 @@ $(function() {
         },
          physics: {
                 barnesHut: {
-                    "gravitationalConstant": -15100,
+                    "gravitationalConstant": -151000,
                     "springLength": 60,
-                    "springConstant": 0.1,
+                    "springConstant": 0.01,
                     "damping": 1
                 },
                 "maxVelocity": 150,
