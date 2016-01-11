@@ -333,8 +333,8 @@ $(function() {
             $('.to').val(edge.to);
         } else if ( !!e.nodes && e.nodes.length > 0 ) {
             var node = e.nodes[0];
-            showTelemetry(node.id);
-            $('.from').val(node.id);
+            showTelemetry(node);
+            $('.from').val(node);
             $('.to').val("");
         } else {
             $('.from').val("");
@@ -353,6 +353,9 @@ $(function() {
             showLatencyTelemetry(from, to)
         }
     }
+    
+    
+    
     $('.telemetry-history').hide();
     var oldNodes = "";
     updateData(
