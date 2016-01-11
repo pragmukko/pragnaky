@@ -350,7 +350,7 @@ $(function() {
         if (!!from && !!to) {
             var idarr = [from, to].sort();
             network.selectEdges([idarr[0] + "_" + idarr[1]]);
-            showLatencyTelemetry(from, to)
+            showLatency(from, to)
         }
     }
     
