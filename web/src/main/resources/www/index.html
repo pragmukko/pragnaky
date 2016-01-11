@@ -5,8 +5,6 @@
         
         <script src="vis/vis.min.js"></script>
         <script src="jquery.js"></script>
-        <script src="chart/Chart.Core.js"></script>
-        <script src="chart/Chart.Doughnut.js"></script>
         <script src="bootstrap/bootstrap.js"></script>
         <script src="typehead.js"></script>
         <link href="bootstrap/bootstrap.css" rel="stylesheet" type="text/css"></link>
@@ -72,12 +70,24 @@
                 top: 20px;
                 left: 20px;
                 z-index: 100;
-                background: #fff;
+                background: rgba(255, 255, 255, 0.5);
             }
             .search-box-holder {
                 font-size: 0;
                 display: inline-block;
                 overflow: visible;
+            }
+            .node-list {
+                height: 60vh;
+                width: 170px;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+            .node-list-item {
+                padding: 5px;
+            }
+            .node-list-item :hover {
+                background: #e5eeff;
             }
         </style>
         
@@ -93,13 +103,14 @@
         
         <div class="control-panel">
             <div style="position: relative;">
-                <div style="display: inline-block;" ><button type="button" class="btn btn-default glyphicon glyphicon-list"></button> </div>
+                <div style="display: inline-block;" ><button type="button" class="btn btn-default glyphicon glyphicon-list node-list-btn"></button> </div>
                 <div class="search-box-holder">
                     <div class="search-box-brd"><input type="text" class="typehead from search-box"  width="20"></div>
                     <div class="search-box-brd"><input style="margin-left: 10px;" type="text" class="typehead to search-box"  width="20"></div>
                     <div class="circle-arrow"><span style="position: relative; top: -1px; left: 2px;">&rarr;</span></div>
                 </div>
             </div>
+             <div class="node-list"></div>
         </div>
         
     </body>

@@ -1,46 +1,36 @@
+'use strict';
+
 function authority() {
-        var url = window.location.href;
-        if (url.startsWith("file")) {
-            return "http://193.105.219.176:9000"
-        } 
-        return ""
+    var url = window.location.href;
+    if (url.startsWith("file")) {
+        return "http://193.105.219.176:9000";
     }
+    return "";
+}
 
 function getColor(time) {
     var treshold = new Date().getTime() - (60 * 1000);
-    if ( time < treshold ) {
-        return "#c0c0c0"
+    if (time < treshold) {
+        return "#c0c0c0";
     }
-    return "#9999ff";    
+    return "#9999ff";
 }
 
 function getNetAddr(addr, tokensCount) {
-    tokensCount = tokens || 3;
+    tokensCount = tokensCount || 3;
     var tokens = addr.split(".");
     return tokens.slice(0, tokensCount).join(".");
 }
 
 function diferentNetwork(from, to, tokensCount) {
-    var fromTokens = from.split(".");
-    var toTokens = to.split(".");
-    for (var i = 0; i < tokensCount; i++) {
-        if ( fromTokens[i] != toTokens[i] )
-            return 1;
+    var fromTokens = from.split("."), toTokens = to.split("."), i;
+    for (i = 0; i < tokensCount; i++) {
+        if (fromTokens[i] !== toTokens[i]) return 1;
     }
     return 0;
 }
 
 function updateData(nodesCallback, edgesCallback) {
-    /*
-    $.getJSON(authority() + "/nodes", function(nodes) {
-        nodesCallback(nodes.map(function(item){
-            return {
-                id: item._id.addr,
-                label: item._id.addr,
-                color: getColor(item.last, item.cpu)
-                
-            }
-        }));*/
         
         $.getJSON(authority() + "/edges", function(edges) {
             var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
@@ -73,7 +63,6 @@ function updateData(nodesCallback, edgesCallback) {
                 }
             }));
             edgesCallback(edgArr);
-       // } );
         
     }).fail(function( jqxhr, textStatus, error ) {
         var err = textStatus + ", " + error;
@@ -111,62 +100,64 @@ function renderTelemetry(cpuChart, memChart, telemetry) {
     $("#mem_value").text("RAM " + memMedian + "%");
 }
 
-var glSelectedNode = undefined
-
-function addItem(data, dataSet) {
-    data.forEach(function(item) { 
-        if (!dataSet.get(item.id))
-            dataSet.add(item);
-    });
-}
-
-function LatencyVisualizer(from, to) {
+function TelemetryVizualizer(host) {
     $('.telemetry-history').show("fast");
-    $('#telemetry-title').html(from + " &rarr; " + to);
-    var latencyContainer = $('#latency_viz')[0];
-    var latencyDataset = new vis.DataSet();
+    $('#telemetry-title').html(host);
+    var telemetryContainer = $('#latency_viz')[0];
+    var telemetryDataset = new vis.DataSet();
+    var groups = new vis.DataSet();
+    groups.add({
+        id: 1,
+        content: "CPU",
+        options: {
+            interpolation: false,
+            drawPoints: false,
+            shaded: false,
+        }});
+
+    groups.add({
+        id: 2,
+        content: "Memory",
+        options: {
+            interpolation: false,
+            drawPoints: false,
+            shaded: false,
+        }});
+
     var options = {
         height: "25vh", 
         width: "100%", 
         interpolation: false,
         drawPoints: false,
-        shaded: true,
-        dataAxis : {
+        legend: true,
+        /*dataAxis : {
             showMinorLabels: false
-        }
+        }*/
     };
-    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, options);
-    var query = encodeURI(JSON.stringify({ source: from, dest: to }));
-    var sort = encodeURI(JSON.stringify({ time: -1 }));
+    var graph2d = new vis.Graph2d(telemetryContainer, telemetryDataset, groups, options);
+    var query = encodeURI(JSON.stringify({ addr: host }));
+    var sort = encodeURI(JSON.stringify({ timestamp: -1 }));
     var isRunning = true;
     
     function plot() {
         if (!isRunning) {
             return;
         }
-        $.getJSON(authority() + "/db/latency?q=" + query + "&sort=" + sort + "&limit=20", function(data) {
-            var ltn = data.map(function(item) { 
-               return {
-                   x: item.time,
-                   y: item.pingTotal
-               }
-            }).reverse();
-            var min = ltn[0].x;
-            var max = latencyDataset.max('x');
-            max = max == null ? 0 : max.x;
-            var old = latencyDataset.getIds({
-                filter: function(it) {
-                    return it.x < min;
-                }
-            });
-            latencyDataset.remove(old);
-            
-            graph2d.setWindow(min, ltn[ltn.length - 1].x);
-            
-            latencyDataset.add(ltn.filter(function(item){ return item.x > max; }));
-        });
         
-        setTimeout( plot, 1000 );
+         $.getJSON(authority() + "/db/telemetry?q=" + query + "&sort=" + sort, function(data) {
+            if (!!data && data.length > 0) {
+                var ltn = data.reduce(function(acc, item) {
+                    acc.push({y: Math.floor(item.cpu * 100), x: item.timestamp, group: 1 });
+                    acc.push({y: Math.floor(item.memory), x: item.timestamp, group: 2 });
+                    return acc;
+                }, [] );
+                telemetryDataset.update(ltn);
+                graph2d.fit();
+                
+            }
+        });
+      
+        setTimeout( plot, 5000 );
         
     }
     
@@ -180,7 +171,98 @@ function LatencyVisualizer(from, to) {
     
 }
 
-var latencyVisualizer;
+var glSelectedNode = undefined
+
+function addItem(data, dataSet) {
+    data.forEach(function(item) { 
+        if (!dataSet.get(item.id))
+            dataSet.add(item);
+    });
+}
+
+function LatencyVizualizer(from, to) {
+    $('.telemetry-history').show("fast");
+    $('#telemetry-title').html(from + " &rarr; " + to);
+    var latencyContainer = $('#latency_viz')[0];
+    var latencyDataset = new vis.DataSet();
+    var groups = new vis.DataSet();
+    groups.add({
+        id: 1,
+        content: "Direct",
+        options: {
+            interpolation: false,
+            drawPoints: false,
+            shaded: false,
+        }});
+
+    groups.add({
+        id: 2,
+        content: "Reverse",
+        options: {
+            interpolation: false,
+            drawPoints: false,
+            shaded: false,
+        }});
+
+    var options = {
+        height: "25vh", 
+        width: "100%", 
+        interpolation: false,
+        drawPoints: false,
+        legend: true,
+        dataAxis : {
+            showMinorLabels: false
+        }
+    };
+    var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, groups, options);
+    var query = encodeURI(JSON.stringify({ source: from, dest: to }));
+    var reverseQuery = encodeURI(JSON.stringify({ source: to, dest: from }));
+    var sort = encodeURI(JSON.stringify({ time: -1 }));
+    var isRunning = true;
+    
+    function plot() {
+        if (!isRunning) {
+            return;
+        }
+        var plainReq = $.getJSON(authority() + "/db/latency?q=" + query + "&sort=" + sort);
+        var reverseReq = $.getJSON(authority() + "/db/latency?q=" + reverseQuery + "&sort=" + sort);
+        $.when(plainReq, reverseReq).done(function(dataPlain, dataReverse) {
+            var ltn1 = dataPlain[0].map(function(item) { 
+               return {
+                   x: item.time,
+                   y: item.pingTotal,
+                   group: 1
+               }
+            }).reverse();
+            var ltn2 = dataReverse[0].map(function(item) { 
+               return {
+                   x: item.time,
+                   y: item.pingTotal,
+                   group: 2
+               }
+            }).reverse();
+            var arr = ltn1.concat(ltn2);
+            
+            latencyDataset.update(arr);
+            graph2d.fit();
+            
+        });
+    
+        setTimeout( plot, 10000 );
+        
+    }
+    
+    plot();
+    
+    this.stop = function() {
+        isRunning = false;
+        graph2d.destroy();
+        $('.telemetry-history').hide();
+    }
+    
+}
+
+var vizualizer;
 
 $(function() {
     
@@ -217,35 +299,48 @@ $(function() {
                 }
             }
     };
+    
+     var animationOptions = {
+        offset: {x: 0, y: 0},
+        duration: 1000,
+        easingFunction: "easeInOutQuad"  
+    }
+    
     var network = new vis.Network(container, data, options);
     
-    function showLatencyTelemetry(from, to) {
-          if (!!latencyVisualizer) {
-            latencyVisualizer.stop();
-            latencyVisualizer = undefined;
+    function showLatency(from, to) {
+        if (!!vizualizer) {
+            vizualizer.stop();
+            vizualizer = undefined;
         }
-        latencyVisualizer = new LatencyVisualizer(from, to);
+        vizualizer = new LatencyVizualizer(from, to);
+    }
+    
+    function showTelemetry(host) {
+        if (!!vizualizer) {
+            vizualizer.stop();
+            vizualizer = undefined;
+        }
+        vizualizer = new TelemetryVizualizer(host);
     }
     
     network.on("click", function(e) {
         if ( !!e.edges && e.edges.length > 0 && !e.nodes.length ) {
             var edgeId = e.edges[0];
             var edge = edges.get(edgeId);
-            showLatencyTelemetry(edge.from, edge.to);
+            showLatency(edge.from, edge.to);
             $('.from').val(edge.from);
             $('.to').val(edge.to);
+        } else if ( !!e.nodes && e.nodes.length > 0 ) {
+            var node = e.nodes[0];
+            showTelemetry(node.id);
+            $('.from').val(node.id);
+            $('.to').val("");
         } else {
             $('.from').val("");
             $('.to').val("");
         }
     });
-    
-    var animationOptions = {
-        offset: {x: 0, y: 0},
-        duration: 1000,
-        easingFunction: "easeInOutQuad"
-      
-    }
     
     function selectFromList(item) {
         network.selectNodes([item]);
@@ -262,16 +357,37 @@ $(function() {
     var oldNodes = "";
     updateData(
         function(data) { 
-            addItem(data, nodes); 
             if ( oldNodes !== data.toString() ) {
+                addItem(data, nodes); 
                 $(".typehead").typeahead({source: data.map(function(item){ return item.id; }), afterSelect: selectFromList});
                 oldNodes = data.toString();
+                data.forEach(function(item) {
+                    $(".node-list").append("<div class='node-list-item'><span>" + item.id + "</span></div>");    
+                });
+                $('.node-list-item').on('click', function(element) {
+                    var value = $(this).text();
+                    network.selectNodes([value]);
+                    $('.from').val(value);
+                    $('.to').val("");
+                    $('.node-list').hide();
+                    network.focus(value, {animation: animationOptions});
+                });
             }
            // network.fit({animation: animationOptions}); 
         }, 
         function(data) { 
             addItem(data, edges); 
             network.fit({animation: animationOptions}); 
+    });
+    
+    $(".node-list").hide();
+    
+    $(".node-list-btn").on('click', function(){
+        var nodeLst = $(".node-list");
+       if ( nodeLst.is(":visible") ) 
+           nodeLst.hide();
+        else
+            nodeLst.show();
     });
     
     /*setInterval(function() { 
