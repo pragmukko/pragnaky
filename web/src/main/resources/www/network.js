@@ -285,19 +285,23 @@ $(function() {
         edges: {
             smooth: false,
         },
-         physics: {
-                barnesHut: {
-                    "gravitationalConstant": -151000,
-                    "springLength": 60,
-                    "springConstant": 0.01,
-                    "damping": 1
-                },
-                "maxVelocity": 150,
-                "minVelocity": 0.75,
-                stabilization: {
-                    iterations: 20
-                }
+        physics: {
+            barnesHut: {
+                "gravitationalConstant": -151000,
+                "springLength": 60,
+                "springConstant": 0.01,
+                "damping": 1
+            },
+            "maxVelocity": 150,
+            "minVelocity": 0.75,
+            stabilization: {
+                iterations: 20
             }
+        },
+        interaction: {
+          navigationButtons: true,
+          keyboard: true
+        }
     };
     
      var animationOptions = {
