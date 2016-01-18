@@ -221,7 +221,7 @@ class TcpPingResponderNioSync extends Thread with PingerConfigProvider {
       var bytesRead = 0
       while ({bytesRead += socketChannel.read(buf); bytesRead} < 9 + pingPayloadSize ){}
       //val bytesRead = socketChannel.read(buf)
-      println(s"S:ping read: $bytesRead from ${socketChannel.getRemoteAddress}")
+      //println(s"S:ping read: $bytesRead from ${socketChannel.getRemoteAddress}")
       buf.flip()
       if (bytesRead >= 9 && buf.get() == '>'.toByte) {
         val start = buf.getLong
@@ -257,7 +257,7 @@ class TcpPingerNioSync(replyTo: ActorRef) extends PingerConfigProvider with Ping
         bytesRead += channel.get.read(buf); bytesRead
       } < 17 + pongPayloadSize) {}
 
-      println(s"C:pong read: $bytesRead from $host")
+      //println(s"C:pong read: $bytesRead from $host")
       buf.flip()
       if (bytesRead >= 17 && buf.get() == '<'.toByte) {
         replyTo ! readPing(buf, host)

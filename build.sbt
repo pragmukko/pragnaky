@@ -1,9 +1,5 @@
 name := "ClusterSupervisor"
 
-version := "1.0"
-
-scalaVersion := "2.11.7"
-
 resolvers ++= Seq(
   "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
   "anormcypher" at "http://repo.anormcypher.org/",
@@ -11,18 +7,23 @@ resolvers ++= Seq(
   "Typesafe repository releases" at "http://repo.typesafe.com/typesafe/releases/"    
 )
 
-//import sbtassembly.AssemblyKeys._
+lazy val commonSettings = Seq(
+  organization := "default",
+  version := "1.0",
+  scalaVersion := "2.11.7",
+  assemblyMergeStrategy in assembly := {
+    case "logback.xml" => MergeStrategy.first
+    case x => (assemblyMergeStrategy in assembly).value(x)
+  }
+)
 
 val akkaV = "2.4.1"
 val akkaStreamV = "2.0.1"
 val swarmV = "1.2.3"
 
 lazy val common = project.in(file("common")).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "common",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       "io.spray" %% "spray-json" % "1.3.2"
     )
@@ -31,11 +32,8 @@ lazy val common = project.in(file("common")).
 
 lazy val pinger = project.in(file("pinger")).
   dependsOn(common).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "pinger",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor" % akkaV,
       "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamV
@@ -45,11 +43,8 @@ lazy val pinger = project.in(file("pinger")).
 
 lazy val db = project.in(file("db")).
   dependsOn(common).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "db",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       "com.typesafe.akka"  %%  "akka-actor" % akkaV,
       "com.typesafe.play" %% "play-iteratees" % "2.3.10",
@@ -62,21 +57,15 @@ lazy val db = project.in(file("db")).
 
 lazy val telegen = project.in(file("telegen")).
   dependsOn(common, db).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "telegen",
-    version := "1.0",
-    //organization := "",
-    scalaVersion := "2.11.7",
     mainClass in assembly := Some("TelemetryGenerator")
   )
 
 lazy val web = project.in(file("web")).
   dependsOn(common, db).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "web",
-    version := "0.1",
-    organization := "default",
-    scalaVersion := "2.11.7",
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
@@ -94,11 +83,8 @@ lazy val web = project.in(file("web")).
 
 lazy val sigar = project.in(file("sigar")).
   dependsOn(common).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "sigar",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       "io.kamon" % "sigar-loader" % "1.6.6-rev002"
     )
@@ -106,11 +92,8 @@ lazy val sigar = project.in(file("sigar")).
 
 lazy val agent = project.in(file("agent")).
   dependsOn(sigar,pinger).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "agent",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
@@ -122,11 +105,8 @@ lazy val agent = project.in(file("agent")).
 
 lazy val restagent = project.in(file("restagent")).
   dependsOn(sigar,pinger).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "restagent",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler"))
@@ -136,11 +116,8 @@ lazy val restagent = project.in(file("restagent")).
 
 lazy val supervisor = project.in(file("supervisor")).
   dependsOn(common, db).
-  settings(
+  settings(commonSettings: _*).settings(
     name := "supervisor",
-    version := "1.0",
-    organization := "default",
-    scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
       ("default"  % "swarmakka_2.11" % swarmV).excludeAll(
           ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
