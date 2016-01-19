@@ -1,5 +1,5 @@
 import java.util.Date
-
+import dal.elasticsearch.ElasticMetricsDAL
 import ping.RichPing
 import util.{ConfigGenId, Messages}
 import Messages.{PersistenceError, Register}
@@ -24,7 +24,7 @@ object Supervisor extends App {
     .start()
 }
 
-class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLogging {
+class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLogging {
 
   implicit val executionContext = context.dispatcher
 
@@ -33,9 +33,6 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
     case MemberUp(member) =>
       println("Subscribe " + member.address)
       subscribeTelemetry(member)
-
-    case Register(gateway) =>
-      sender().path.address.host.foreach( addNodeIfNotExists(_, gateway) )
 
     case telemetry:Array[JsObject] => sender().path.address.host foreach {persistTelemetry(_, telemetry)}
 
@@ -47,6 +44,5 @@ class TelemetryAdapter extends GCExtentions with MongoMetricsDAL with ActorLoggi
         case other => log.error("Fail to persist {0}", other.toString)
       }
   }
-
 
 }

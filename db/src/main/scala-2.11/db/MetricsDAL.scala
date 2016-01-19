@@ -1,15 +1,14 @@
 package db
 
+import spray.json.JsObject
+
 /**
  * Created by max on 11/27/15.
  */
 trait MetricsDAL {
 
-  def storeNodeIfNotExists(name:String, attrs:Tuple2[String, Any]*) : String
+  def persistTelemetry(host: String, telemetry:Seq[JsObject])
 
-  def storeReference(name1:String, name2:String)
+  def saveLatency(json:JsObject)
 
-  def storeAttributes(name:String, attrs:Tuple2[String, Any]*)
-
-  def transaction(proc:  => Unit)
 }

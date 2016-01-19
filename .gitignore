@@ -6,3 +6,4 @@ mongo_db/
 *.out
 .DS_Store
 /native
+/es

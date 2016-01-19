@@ -60,16 +60,6 @@ lazy val db = project.in(file("db")).
     )
   )
 
-lazy val telegen = project.in(file("telegen")).
-  dependsOn(common, db).
-  settings(
-    name := "telegen",
-    version := "1.0",
-    //organization := "",
-    scalaVersion := "2.11.7",
-    mainClass in assembly := Some("TelemetryGenerator")
-  )
-
 lazy val web = project.in(file("web")).
   dependsOn(common, db).
   settings(
@@ -151,8 +141,19 @@ lazy val supervisor = project.in(file("supervisor")).
           ExclusionRule(organization="com.typesafe.akka", name="akka-http-experimental_2.11"),
           ExclusionRule(organization="com.typesafe.akka", name="akka-http-spray-json-experimental_2.11")/*,
           ExclusionRule(organization="com.typesafe.akka", name="akka-stream-experimental_2.11")*/
-      )
+      ),
+      "org.elasticsearch" % "elasticsearch" % "2.1.1"
     ),
     mainClass in assembly := Some("Supervisor")
+  )
+
+lazy val telegen = project.in(file("telegen")).
+  dependsOn(common, supervisor).
+  settings(
+    name := "telegen",
+    version := "1.0",
+    //organization := "",
+    scalaVersion := "2.11.7",
+    mainClass in assembly := Some("TelemetryGenerator")
   )
 

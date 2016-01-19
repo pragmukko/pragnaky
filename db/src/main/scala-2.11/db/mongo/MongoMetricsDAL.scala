@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.{TimeZone, Date}
 
 import akka.actor.{Actor, ActorRef}
+import db.MetricsDAL
 import reactivemongo.api.{DefaultDB, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
@@ -18,7 +19,7 @@ import scala.util.{Failure, Success}
 /**
  * Created by max on 11/29/15.
  */
-trait MongoMetricsDAL extends Mongo2Spray {
+trait MongoMetricsDAL extends Mongo2Spray with MetricsDAL {
 
   me: Any =>
 

@@ -33,6 +33,7 @@ function diferentNetwork(from, to, tokensCount) {
 function updateData(nodesCallback, edgesCallback) {
         
         $.getJSON(authority() + "/edges", function(edges) {
+            var start = new Date().getTime();
             var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
             var nodes = {};
             var edgArr =edges.map( function(item) {
@@ -63,7 +64,7 @@ function updateData(nodesCallback, edgesCallback) {
                 }
             }));
             edgesCallback(edgArr);
-        
+        console.log(new Date().getTime() - start);
     }).fail(function( jqxhr, textStatus, error ) {
         var err = textStatus + ", " + error;
         console.log( "Request Failed: " + err );
@@ -174,10 +175,7 @@ function TelemetryVizualizer(host) {
 var glSelectedNode = undefined
 
 function addItem(data, dataSet) {
-    data.forEach(function(item) { 
-        if (!dataSet.get(item.id))
-            dataSet.add(item);
-    });
+    dataSet.update(data);
 }
 
 function LatencyVizualizer(from, to) {
@@ -361,44 +359,51 @@ $(function() {
     
     
     $('.telemetry-history').hide();
-    var oldNodes = "";
-    updateData(
-        function(data) { 
-            if ( oldNodes !== data.toString() ) {
-                addItem(data, nodes); 
-                $(".typehead").typeahead({source: data.map(function(item){ return item.id; }), afterSelect: selectFromList});
-                oldNodes = data.toString();
-                data.forEach(function(item) {
-                    $(".node-list").append("<div class='node-list-item'><span>" + item.id + "</span></div>");    
-                });
-                $('.node-list-item').on('click', function(element) {
-                    var value = $(this).text();
-                    network.selectNodes([value]);
-                    $('.from').val(value);
-                    $('.to').val("");
-                    $('.node-list').hide();
-                    network.focus(value, {animation: animationOptions});
-                });
-            }
-           // network.fit({animation: animationOptions}); 
-        }, 
-        function(data) { 
-            addItem(data, edges); 
-            network.fit({animation: animationOptions}); 
-    });
-    
     $(".node-list").hide();
     
     $(".node-list-btn").on('click', function(){
         var nodeLst = $(".node-list");
-       if ( nodeLst.is(":visible") ) 
-           nodeLst.hide();
+        if ( nodeLst.is(":visible") ) 
+            nodeLst.hide();
         else
             nodeLst.show();
     });
+    function updateCallback() {
+        var oldNodes = "";
+        updateData(
+            function(data) { 
+                if ( oldNodes !== data.toString() ) {
+                    addItem(data, nodes); 
+                    $(".typehead").typeahead({source: data.map(function(item){ return item.id; }), afterSelect: selectFromList});
+                    oldNodes = data.toString();
+                    $(".node-list").empty();
+                    data.forEach(function(item) {
+                        $(".node-list").append("<div class='node-list-item'><span>" + item.id + "</span></div>");    
+                    });
+                    $('.node-list-item').on('click', function(element) {
+                        var value = $(this).text();
+                        network.selectNodes([value]);
+                        $('.from').val(value);
+                        $('.to').val("");
+                        $('.node-list').hide();
+                        network.focus(value, {animation: animationOptions});
+                    });
+                }
+           // network.fit({animation: animationOptions}); 
+            }, 
+            function(data) { 
+                addItem(data, edges); 
+                network.fit({animation: animationOptions}); 
+                setTimeout(updateCallback, 10000);
+            }
+        );
+    };
     
-    /*setInterval(function() { 
-        updateData(function(data) { addItem(data, nodes); }, function(data) { addItem(data, edges); /*network.fit();*/ //});
-   // }, 10000);*/
+    updateCallback();
+    //setInterval(function() { 
+    //    updateData(function(data) { addItem(data, nodes); }, function(data) { addItem(data, edges); /*network.fit();*/ //});
+    //}, 10000);
+    
+    ///setInterval(updateCallback, 10000);
     
 });

@@ -1,26 +1,30 @@
 import java.security.SecureRandom
 import java.util.concurrent.{Executors, ExecutorService}
 
-import db.mongo.MongoMetricsDAL
+import akka.actor.{Props, Actor, ActorSystem}
+import akka.actor.Actor.Receive
 import ping.RichPing
 import spray.json._
+import util.Messages.PersistenceError
 
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import scala.util.Random
+import dal.elasticsearch._
 
 /**
  * Created by yishchuk on 03.12.2015.
  */
-object TelemetryGenerator extends App{
+object TelemetryGenerator extends App {
 
 
   println("Start working")
-  new TelemetryWriter().run()//.start()
-  
+  var system = ActorSystem("test-generator")
+  system.actorOf(Props[TelemetryWriter]) ! "Start"
+
 }
 
-class TelemetryWriter extends MongoMetricsDAL{
+class TelemetryWriter extends Actor with ElasticMetricsDAL {
 
   implicit val executionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 
@@ -36,7 +40,7 @@ class TelemetryWriter extends MongoMetricsDAL{
       h1 =>
         val tele = telemetryObject(h1, rnd.nextDouble() * 100, rnd.nextDouble(), "eth0", rnd.nextInt(100000), rnd.nextInt(100000))
         //val (from, to) = getHosts()
-        saveTelemetry(tele)
+        persistTelemetry(h1, tele :: Nil)
         hosts foreach {
           h2 =>
             if (h1 != h2) {
@@ -91,5 +95,17 @@ class TelemetryWriter extends MongoMetricsDAL{
         )
         )
       ))
+  }
+
+  override def receive: Actor.Receive = {
+    case "Start" => Future {
+      run()
+    }
+
+    case PersistenceError(err) =>
+      err match {
+        case th:Throwable => th.printStackTrace()
+        case other => printf("Fail to persist {0}", other)
+      }
   }
 }
