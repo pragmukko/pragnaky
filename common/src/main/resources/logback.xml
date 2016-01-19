@@ -1,0 +1,20 @@
+<configuration>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>log/app.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%date{yyyy-MM-dd} %X{akkaTimestamp} %-5level[%thread] %logger{1} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="${root-level:-DEBUG}">
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <logger name="akka.cluster.ClusterHeartbeatSender" level="INFO"/>
+    <logger name="akka.serialization.Serialization" level="INFO"/>
+
+</configuration>
