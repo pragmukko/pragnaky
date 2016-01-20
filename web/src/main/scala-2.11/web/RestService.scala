@@ -1,33 +1,31 @@
 package web
 
-import akka.actor.{Cancellable, ActorSystem}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{`Access-Control-Allow-Credentials`, `Access-Control-Max-Age`, `Access-Control-Allow-Headers`}
-import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
-import db.mongo.{Mongo2Spray, MongoMetricsDAL}
 import http.CorsSupport
-import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.bson.{BSONDateTime, BSONArray, BSONString, BSONDocument}
+import org.elasticsearch.client.Client
+import org.elasticsearch.search.aggregations.bucket.terms.Terms
+import org.elasticsearch.search.aggregations.AggregationBuilders
 import akka.http.scaladsl.model.StatusCodes._
+import org.elasticsearch.search.aggregations.metrics.avg.Avg
 import spray.json._
 import utils.ConfigProvider
-import reactivemongo.api.commands._
-import scala.concurrent.Future
-import akka.agent.Agent
 import scala.concurrent.duration._
+import scala.util.parsing.json.{JSONObject, JSONArray}
+import scala.collection.JavaConversions._
 
 /**
  * Created by yishchuk on 30.11.2015.
  */
-class RestService(implicit val system: ActorSystem, val config: Config) extends CorsSupport with MongoMetricsDAL with SprayJsonSupport {
+class RestService(clientProvider: (Client => String) => String, config:Config)(implicit system:ActorSystem) extends CorsSupport with SprayJsonSupport {
 
-  implicit val executionContext = system.dispatcher
   implicit val materializer = ActorMaterializer()
 
   override val corsAllowOrigins: List[String] = List("*")
@@ -39,11 +37,6 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
     `Access-Control-Allow-Credentials`(corsAllowCredentials)
   )
 
-  implicit val bsonListMarshaller = Marshaller.opaque { bsons: List[BSONDocument] =>
-    val js = JsArray(bsons.map(bson => reader.read(bson)):_*)
-    HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
-  }
-
   implicit val stringSetMarshaller = Marshaller.opaque { addrs: Set[String] =>
     val js = JsArray(Vector(addrs.toList map {JsString(_)}:_*))
     HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
@@ -54,123 +47,61 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
     println("REST Service started")
   }
 
-  val knownHosts = Agent(Set.empty[String])
-  val knownHostCancels = Agent(Map.empty[String, Cancellable])
-  private val hostInactivityTimeout: FiniteDuration = config.getDuration("pinger.rest-inactivity-timeout")
-
-  private def updateHost(hosts: Seq[String]) = {
-    knownHosts send { _ ++ hosts}
-    for {
-      host <- hosts
-      hostCancel = system.scheduler.scheduleOnce(hostInactivityTimeout) {
-        println(s"cancelling host $host ")
-        knownHosts send { _ - host}
-        knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs - host}
-      }
-    } {
-      knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs + (host -> hostCancel)}
-    }
-  }
-
   def now = System.currentTimeMillis()
 
   val routes = {
-    import Directives._
+   path("edges") {
+     get {
+       complete {
+         clientProvider {
+           c =>
+             val latencyAggr = AggregationBuilders.avg("avg_ping").field("pingTotal")
+             val srcAddrAggr = AggregationBuilders.terms("source").field("source").size(0).subAggregation(latencyAggr)
+             val destAddrAggr = AggregationBuilders.terms("dest").field("dest").size(0).subAggregation(srcAddrAggr)
+             val resp = c.prepareSearch("stat").setTypes("latency").addAggregation(destAddrAggr).execute().actionGet()
 
-    //logRequestResult("swarm-akka") {
-      (path("db" / knownDbs) & parameters('q.?, 'p.?, 'sort.?, 'limit.as[Int].?)) { (db, q, p, sort, limit) =>
-        get {
-            complete {
-              db.find(q.toBson, p.toBson).sort(sort.toBson).cursor[BSONDocument]().collect[List](limit.getOrElse(100))
-            }
-        }
-      } ~ path("edges") {
-        get {
-          complete {
-            val col:BSONCollection = knownDbs("latency")
-            import col.BatchCommands.AggregationFramework.{
-              Match, Avg, Group, Last, Max
-            }
-            //val mtch = Match( BSONDocument( "creationTime" -> BSONDocument("$gte" -> BSONDateTime(now - (30 * 60 * 1000 )) ) ) )
-            val group = Group(BSONDocument("source" -> "$source", "dest" -> "$dest"))("last" -> Avg("pingTotal"), "timestamp" -> Max("time"))
-            col.aggregate(group).map(_.documents)
-          }
-        }
-      } ~ path("nodes") {
-        get {
-          complete {
-            val col:BSONCollection = knownDbs("telemetry")
-            import col.BatchCommands.AggregationFramework.{
-              Sort, Group, Last, Ascending
-            }
-            val sort = Sort(Ascending("timestamp"))
-            val group = Group(BSONDocument("addr" -> "$addr"))("last" -> Last("timestamp"), "cpu" -> Last("cpu"))
-            col.aggregate(sort, List(group)).map(_.documents)
-          }
-        }
-      } ~ path("telemetry") {
-        post {
-          (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
-            remoteAddr.getAddress map {
-              _.getHostAddress
-            } foreach { host =>
-              updateHost(Seq(host))
-              value match {
-                case array: JsArray => persistTelemetry(host, array.elements.collect { case o: JsObject => o })
-                case obj: JsObject => persistTelemetry(host, Seq(obj))
-                case _ => println(s"Unknown telemetry JS value: $value")
-              }
-            }
-            complete {
-              knownHosts.future.map(hosts => hosts -- (remoteAddr.getAddress map {_.getHostAddress}).toSet)
-            }
-          }
-        }
-      } ~ path("latency") {
-        post {
-          (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
-            updateHost(remoteAddr.getAddress.toList map {_.getHostAddress})
-            import ping.RichPing
-            import ping.RichPingProtocol._
-            value match {
-              case array: JsArray =>
-                array.elements.collect {
-                  case obj: JsObject =>
-                    saveLatency(obj)
-                    val rp = obj.convertTo[RichPing]
-                    updateHost(Seq(rp.source, rp.dest))
-                }
-              case obj: JsObject =>
-                saveLatency(obj)
-                val rp = obj.convertTo[RichPing]
-                updateHost(Seq(rp.source, rp.dest))
-              case _ => println(s"Unknown latency JS value: $value")
-            }
-            complete {
-              knownHosts.future.map(hosts => hosts -- (remoteAddr.getAddress map {_.getHostAddress}).toSet)
-            }
-          }
-        }
-      } ~ path("") {
-        get {
-          getFromResource(s"www/index.html")
-        }
-      } ~
-        getFromResourceDirectory("www")
-    //}
+             val terms = resp.getAggregations.get("dest").asInstanceOf[Terms]
+             val respArray = terms.getBuckets.flatMap {
+               destBucket =>
+                 val dst = destBucket.getKey
 
-  }
+                 destBucket.getAggregations.get("source").asInstanceOf[Terms].getBuckets.map {
+                   sourceBucket =>
+                     Map(
+                       "dest" -> dst,
+                       "source" -> sourceBucket.getKey,
+                       "last" -> sourceBucket.getAggregations.get("avg_ping").asInstanceOf[Avg].getValue
+                     )
+                 }
+             }
 
-  implicit class BsonSupport(strOpt: Option[String]) {
-    def toBson = strOpt.map(str => writer.write(JsonParser(str).asJsObject)).getOrElse(BSONDocument())
+             JSONArray(respArray.toList).toString{ case m:Map[String, _] => JSONObject(m).toString()}
+         }
+
+       }
+     }
+   } ~ path("nodes") {
+     get {
+       complete {
+         clientProvider {
+           c =>
+             val aggr = AggregationBuilders.terms("nodes").field("addr").size(0)
+             val resp = c.prepareSearch("stat").setTypes("telemetry").addAggregation(aggr).execute().actionGet()
+             val terms = resp.getAggregations.get("nodes").asInstanceOf[Terms]
+             JSONArray(terms.getBuckets.map(_.getKey).toList).toString()
+         }
+       }
+     }
+   } ~ path("") {
+     get {
+       getFromResource(s"www/index.html")
+     }
+   } ~
+     getFromResourceDirectory("www")
+
   }
 
   implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration = Duration.fromNanos(d.toNanos)
 
 }
 
-object RestNode extends App with ConfigProvider {
-    val system = ActorSystem(config.getString("akka-sys-name"), config)
-
-    new RestService()(system, config).start()
-}

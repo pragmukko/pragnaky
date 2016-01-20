@@ -1,4 +1,5 @@
 import java.util.Date
+import akka.cluster.Member
 import dal.elasticsearch.ElasticMetricsDAL
 import ping.RichPing
 import util.{ConfigGenId, Messages}
@@ -9,6 +10,8 @@ import akka.cluster.ClusterEvent.MemberUp
 import builders.GRoundControlNode
 import db.mongo.MongoMetricsDAL
 import spray.json.{JsNumber, JsString, JsObject}
+
+import scala.concurrent.Await
 
 /**
  * Created by max on 11/24/15.

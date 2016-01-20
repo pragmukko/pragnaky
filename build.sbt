@@ -63,6 +63,7 @@ lazy val web = project.in(file("web")).
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
       "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
+      "org.elasticsearch" % "elasticsearch" % "2.1.1",
       ("default"  % "swarmakka_2.11" % swarmV).excludeAll(
         ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
         ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),

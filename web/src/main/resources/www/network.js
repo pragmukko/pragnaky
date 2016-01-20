@@ -37,14 +37,14 @@ function updateData(nodesCallback, edgesCallback) {
             var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
             var nodes = {};
             var edgArr =edges.map( function(item) {
-                var idarr = [item._id.source, item._id.dest ].sort();
-                nodes[item._id.source] = 0;
-                nodes[item._id.dest] = 0;
+                var idarr = [item.source, item.dest ].sort();
+                nodes[item.source] = 0;
+                nodes[item.dest] = 0;
                 return {
                     id: idarr[0] + "_" + idarr[1], 
                     from: idarr[0],
                     to: idarr[1],
-                    length: 1000 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item._id.source, item._id.dest, 3) * 500,
+                    length: 1000 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item.source, item.dest, 3) * 500,
                     //hidden: true,
                     color: {
                         color: "rgba(100, 100, 100, 0.1)",

@@ -7,6 +7,7 @@ import db.MetricsDAL
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.node.NodeBuilder
 import spray.json.{JsNumber, JsString, JsObject}
@@ -65,7 +66,9 @@ trait ElasticMetricsDAL extends MetricsDAL {
 
 object ElasticSearchInstance {
 
-  val node = NodeBuilder.nodeBuilder().node()
+  val settings = Settings.settingsBuilder()
+  settings.put("network.host", "0.0.0.0")
+  val node = NodeBuilder.nodeBuilder().settings(settings).node()
 
   sys addShutdownHook { node.close() }
 

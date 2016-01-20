@@ -1,2 +1,2 @@
-cluster.name: ClusterStat
 path.home: Data
+network.host: _non_loopback_
