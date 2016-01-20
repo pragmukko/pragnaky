@@ -44,32 +44,9 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
     HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
   }
 
-  implicit val stringSetMarshaller = Marshaller.opaque { addrs: Set[String] =>
-    val js = JsArray(Vector(addrs.toList map {JsString(_)}:_*))
-    HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
-  }
-
   def start() = {
     Http().bindAndHandle(cors { routes }, config.getString("http.interface"), config.getInt("http.port"))
     println("REST Service started")
-  }
-
-  val knownHosts = Agent(Set.empty[String])
-  val knownHostCancels = Agent(Map.empty[String, Cancellable])
-  private val hostInactivityTimeout: FiniteDuration = config.getDuration("pinger.rest-inactivity-timeout")
-
-  private def updateHost(hosts: Seq[String]) = {
-    knownHosts send { _ ++ hosts}
-    for {
-      host <- hosts
-      hostCancel = system.scheduler.scheduleOnce(hostInactivityTimeout) {
-        println(s"cancelling host $host ")
-        knownHosts send { _ - host}
-        knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs - host}
-      }
-    } {
-      knownHostCancels send {hcs => hcs.get(host).foreach(_.cancel()); hcs + (host -> hostCancel)}
-    }
   }
 
   def now = System.currentTimeMillis()
@@ -108,49 +85,6 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
             col.aggregate(sort, List(group)).map(_.documents)
           }
         }
-      } ~ path("telemetry") {
-        post {
-          (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
-            remoteAddr.getAddress map {
-              _.getHostAddress
-            } foreach { host =>
-              updateHost(Seq(host))
-              value match {
-                case array: JsArray => persistTelemetry(host, array.elements.collect { case o: JsObject => o })
-                case obj: JsObject => persistTelemetry(host, Seq(obj))
-                case _ => println(s"Unknown telemetry JS value: $value")
-              }
-            }
-            complete {
-              knownHosts.future.map(hosts => hosts -- (remoteAddr.getAddress map {_.getHostAddress}).toSet)
-            }
-          }
-        }
-      } ~ path("latency") {
-        post {
-          (extractClientIP & entity(as[JsValue])) { (remoteAddr, value) =>
-            updateHost(remoteAddr.getAddress.toList map {_.getHostAddress})
-            import ping.RichPing
-            import ping.RichPingProtocol._
-            value match {
-              case array: JsArray =>
-                array.elements.collect {
-                  case obj: JsObject =>
-                    saveLatency(obj)
-                    val rp = obj.convertTo[RichPing]
-                    updateHost(Seq(rp.source, rp.dest))
-                }
-              case obj: JsObject =>
-                saveLatency(obj)
-                val rp = obj.convertTo[RichPing]
-                updateHost(Seq(rp.source, rp.dest))
-              case _ => println(s"Unknown latency JS value: $value")
-            }
-            complete {
-              knownHosts.future.map(hosts => hosts -- (remoteAddr.getAddress map {_.getHostAddress}).toSet)
-            }
-          }
-        }
       } ~ path("") {
         get {
           getFromResource(s"www/index.html")
@@ -164,8 +98,6 @@ class RestService(implicit val system: ActorSystem, val config: Config) extends 
   implicit class BsonSupport(strOpt: Option[String]) {
     def toBson = strOpt.map(str => writer.write(JsonParser(str).asJsObject)).getOrElse(BSONDocument())
   }
-
-  implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration = Duration.fromNanos(d.toNanos)
 
 }
 
