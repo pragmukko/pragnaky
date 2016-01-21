@@ -8,7 +8,6 @@ import actors.GCExtentions
 import akka.actor.{ActorLogging, ActorRef}
 import akka.cluster.ClusterEvent.MemberUp
 import builders.GRoundControlNode
-import db.mongo.MongoMetricsDAL
 import spray.json.{JsNumber, JsString, JsObject}
 
 import scala.concurrent.Await

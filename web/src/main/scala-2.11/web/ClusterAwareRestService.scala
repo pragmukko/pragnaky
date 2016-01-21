@@ -26,7 +26,7 @@ object ClusterAwareRestService extends App with ClusterNode with ConfigProvider 
     try {
       callback(client)
     } catch {
-      case th =>
+      case th:Throwable =>
         th.printStackTrace()
         throw th
     } finally {

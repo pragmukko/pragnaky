@@ -43,22 +43,8 @@ lazy val pinger = project.in(file("pinger")).
 
   )
 
-lazy val db = project.in(file("db")).
-  dependsOn(common).
-  settings(commonSettings: _*).settings(
-    name := "db",
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka"  %%  "akka-actor" % akkaV,
-      "com.typesafe.play" %% "play-iteratees" % "2.3.10",
-      ("org.reactivemongo" %% "reactivemongo" % "0.11.9").excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
-      "joda-time" % "joda-time" % "2.9.1",
-      "org.joda" % "joda-convert" % "1.8.1",
-      "io.spray" %% "spray-json" % "1.3.2"
-    )
-  )
-
 lazy val web = project.in(file("web")).
-  dependsOn(common, db).
+  dependsOn(common).
   settings(commonSettings: _*).settings(
     name := "web",
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
@@ -100,7 +86,7 @@ lazy val agent = project.in(file("agent")).
   )
 
 lazy val supervisor = project.in(file("supervisor")).
-  dependsOn(common, db).
+  dependsOn(common).
   settings(commonSettings: _*).settings(
     name := "supervisor",
     libraryDependencies ++= Seq(

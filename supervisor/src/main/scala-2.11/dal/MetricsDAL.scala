@@ -1,4 +1,4 @@
-package db
+package dal
 
 import spray.json.JsObject
 

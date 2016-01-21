@@ -3,7 +3,7 @@ package dal.elasticsearch
 import java.util.Date
 
 import akka.actor.{ActorRef, Actor}
-import db.MetricsDAL
+import dal.MetricsDAL
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.client.Client
