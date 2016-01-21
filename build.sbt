@@ -15,6 +15,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.7",
   assemblyMergeStrategy in assembly := {
     case "logback.xml" => MergeStrategy.first
+    case PathList("org", "joda", "time", xs @ _*) => MergeStrategy.first
     case x => (assemblyMergeStrategy in assembly).value(x)
   }
 )
