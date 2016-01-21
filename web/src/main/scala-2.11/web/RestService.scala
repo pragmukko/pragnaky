@@ -19,7 +19,7 @@ import org.elasticsearch.search.sort.SortOrder
 import spray.json._
 import utils.ConfigProvider
 import scala.concurrent.duration._
-import scala.util.parsing.json.{JSONObject, JSONArray}
+import scala.util.parsing.json.{JSONFormat, JSONObject, JSONArray}
 import scala.collection.JavaConversions._
 
 /**
@@ -38,9 +38,8 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
     `Access-Control-Allow-Credentials`(corsAllowCredentials)
   )
 
-  implicit val stringSetMarshaller = Marshaller.opaque { addrs: Set[String] =>
-    val js = JsArray(Vector(addrs.toList map {JsString(_)}:_*))
-    HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js.compactPrint ))
+  implicit val stringMarshaller = Marshaller.opaque { js: String =>
+    HttpResponse(OK, entity = HttpEntity(ContentTypes.`application/json`, js ))
   }
 
   def start() = {
@@ -67,7 +66,7 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
                   request.setSize(limit.getOrElse(0))
 
                   val res = c.prepareSearch("stat").setTypes(dataType).setQuery(q).execute().actionGet()
-                  JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString
+                  JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString(jsonObjFormatter)
               }
             }
         }
@@ -121,6 +120,25 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
    } ~
      getFromResourceDirectory("www")
 
+  }
+
+  def jsonObjFormatter(v:Any) : String = v match {
+    case m:java.util.Map[String, Any] =>
+      JSONObject(m.toMap).toString(jsonObjFormatter)
+
+    case m:Map[String, Any] =>
+      JSONObject(m).toString(jsonObjFormatter)
+
+    case a:java.util.List[Any] =>
+      JSONArray(a.toList).toString(jsonObjFormatter)
+
+    case a:List[Any] =>
+      JSONArray(a).toString(jsonObjFormatter)
+
+    case jso:JSONObject => jso.toString(jsonObjFormatter)
+
+    case other =>
+      JSONFormat.defaultFormatter(other)
   }
 
   implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration = Duration.fromNanos(d.toNanos)

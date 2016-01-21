@@ -136,8 +136,8 @@ function TelemetryVizualizer(host) {
         }*/
     };
     var graph2d = new vis.Graph2d(telemetryContainer, telemetryDataset, groups, options);
-    var query = encodeURI(JSON.stringify({ addr: host }));
-    var sort = encodeURI(JSON.stringify({ timestamp: -1 }));
+    var query = { query : { term: { addr: host } }};
+    var sort = encodeURI('timestamp:DESC');
     var isRunning = true;
     
     function plot() {
@@ -145,7 +145,11 @@ function TelemetryVizualizer(host) {
             return;
         }
         
-         $.getJSON(authority() + "/db/telemetry?q=" + query + "&sort=" + sort, function(data) {
+        var fromTime = new Date().getTime() - (2 * 24 * 60 * 60 * 1000);
+        var rangeQuery = { timestamp : { gte: fromTime } };
+        query.query['range'] = rangeQuery;
+        
+        $.getJSON(authority() + "/db/telemetry?q=" + encodeURI(JSON.stringify(query)) + "&sort=" + sort, function(data) {
             if (!!data && data.length > 0) {
                 var ltn = data.reduce(function(acc, item) {
                     acc.push({y: Math.floor(item.cpu * 100), x: item.timestamp, group: 1 });
