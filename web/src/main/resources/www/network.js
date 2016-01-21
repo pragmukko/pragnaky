@@ -213,17 +213,21 @@ function LatencyVizualizer(from, to) {
         }
     };
     var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, groups, options);
-    var query = encodeURI(JSON.stringify({ source: from, dest: to }));
-    var reverseQuery = encodeURI(JSON.stringify({ source: to, dest: from }));
-    var sort = encodeURI(JSON.stringify({ time: -1 }));
+    var query = {query: { bool: { should: [  {match: {source: from}}, {match: {dest: to}} ] }}};
+    var reverseQuery = {query: { bool: { should: [  {match: {source: to}}, {match: {dest: from}} ] }}};
+    var sort = encodeURI('time:DESC');
     var isRunning = true;
     
     function plot() {
         if (!isRunning) {
             return;
         }
-        var plainReq = $.getJSON(authority() + "/db/latency?q=" + query + "&sort=" + sort);
-        var reverseReq = $.getJSON(authority() + "/db/latency?q=" + reverseQuery + "&sort=" + sort);
+        var fromTime = new Date().getTime() - (2 * 24 * 60 * 60 * 1000);
+        var rangeQuery = { time : { gte: fromTime } };
+        query.query['range'] = rangeQuery;
+        reverseQuery.query['range'] = rangeQuery;
+        var plainReq = $.getJSON(authority() + "/db/latency?q=" + encodeURI(JSON.stringify(query)) + "&sort=" + sort);
+        var reverseReq = $.getJSON(authority() + "/db/latency?q=" + encodeURI(JSON.stringify(reverseQuery)) + "&sort=" + sort);
         $.when(plainReq, reverseReq).done(function(dataPlain, dataReverse) {
             var ltn1 = dataPlain[0].map(function(item) { 
                return {

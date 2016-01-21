@@ -15,6 +15,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import akka.http.scaladsl.model.StatusCodes._
 import org.elasticsearch.search.aggregations.metrics.avg.Avg
+import org.elasticsearch.search.sort.SortOrder
 import spray.json._
 import utils.ConfigProvider
 import scala.concurrent.duration._
@@ -50,7 +51,28 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
   def now = System.currentTimeMillis()
 
   val routes = {
-   path("edges") {
+   path("db" / Segment ) {
+     dataType => {
+        parameters('q.as[String], 'sort.as[String] ?, 'limit.as[Int] ?) {
+          (q, sort, limit) =>
+            complete {
+              clientProvider {
+                c =>
+                  val request = c.prepareSearch("stat").setTypes(dataType).setQuery(q)
+                  sort
+                    .map(_.split(':').toList)
+                    .collect{ case a :: b :: Nil => a -> b  }
+                    .foreach(x => request.addSort(x._1, SortOrder.valueOf(x._2) ))
+
+                  request.setSize(limit.getOrElse(0))
+
+                  val res = c.prepareSearch("stat").setTypes(dataType).setQuery(q).execute().actionGet()
+                  JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString
+              }
+            }
+        }
+     }
+   } ~ path("edges") {
      get {
        complete {
          clientProvider {
