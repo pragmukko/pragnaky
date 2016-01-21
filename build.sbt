@@ -1,4 +1,6 @@
-name := "ClusterSupervisor"
+name := "pragnaky"
+
+scalaVersion := "2.11.7"
 
 resolvers ++= Seq(
   "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
@@ -95,17 +97,6 @@ lazy val agent = project.in(file("agent")).
 
     ),
     mainClass in assembly := Some("Agent")
-  )
-
-lazy val restagent = project.in(file("restagent")).
-  dependsOn(sigar,pinger).
-  settings(commonSettings: _*).settings(
-    name := "restagent",
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
-      ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler"))
-    ),
-    mainClass in assembly := Some("RestAgent")
   )
 
 lazy val supervisor = project.in(file("supervisor")).
