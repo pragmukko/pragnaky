@@ -10,7 +10,9 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
 import http.CorsSupport
+import org.elasticsearch.action.search.SearchType
 import org.elasticsearch.client.Client
+import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import akka.http.scaladsl.model.StatusCodes._
@@ -57,15 +59,19 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
             complete {
               clientProvider {
                 c =>
-                  val request = c.prepareSearch("stat").setTypes(dataType).setQuery(q)
+                  val request = c.prepareSearch("stat")
+                    .setTypes(dataType)
+                    .setSearchType(SearchType.QUERY_THEN_FETCH)
+                    .setFrom(0)
+                    .setSize(limit.getOrElse(10000))
+                    .setQuery(q)
+
                   sort
                     .map(_.split(':').toList)
                     .collect{ case a :: b :: Nil => a -> b  }
                     .foreach(x => request.addSort(x._1, SortOrder.valueOf(x._2) ))
 
-                  request.setSize(limit.getOrElse(0))
-
-                  val res = c.prepareSearch("stat").setTypes(dataType).setQuery(q).execute().actionGet()
+                  val res = request.execute().actionGet()
                   JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString(jsonObjFormatter)
               }
             }
@@ -126,19 +132,16 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
     case m:java.util.Map[String, Any] =>
       JSONObject(m.toMap).toString(jsonObjFormatter)
 
-    case m:Map[String, Any] =>
-      JSONObject(m).toString(jsonObjFormatter)
-
     case a:java.util.List[Any] =>
       JSONArray(a.toList).toString(jsonObjFormatter)
 
-    case a:List[Any] =>
-      JSONArray(a).toString(jsonObjFormatter)
-
     case jso:JSONObject => jso.toString(jsonObjFormatter)
 
+    case null =>
+      "0"
     case other =>
       JSONFormat.defaultFormatter(other)
+
   }
 
   implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration = Duration.fromNanos(d.toNanos)
