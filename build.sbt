@@ -61,7 +61,7 @@ lazy val web = project.in(file("web")).
       )
 
     ),
-    mainClass in assembly := Some("web.RestNode")
+    mainClass in assembly := Some("web.ClusterAwareRestService")
   )
 
 lazy val sigar = project.in(file("sigar")).
