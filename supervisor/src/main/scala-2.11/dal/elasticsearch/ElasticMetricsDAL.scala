@@ -68,7 +68,10 @@ object ElasticSearchInstance {
 
   val settings = Settings.settingsBuilder()
   settings.put("network.host", "0.0.0.0")
-  val node = NodeBuilder.nodeBuilder().local(true).settings(settings).node()
+  settings.put("discovery.zen.ping.multicast", false)
+  val node = NodeBuilder.nodeBuilder()
+    .settings(settings)
+    .node()
 
   sys addShutdownHook { node.close() }
 
