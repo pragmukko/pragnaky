@@ -121,7 +121,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
   }
 
   def knownHosts = {
-    cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatten.toList
+    cluster.state.members.filter(_.roles.contains("embedded")).map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatten.toList
   }
 
   def pingNextKnownHost(hosts:List[InetAddress]) = {
@@ -131,7 +131,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
         rest
 
       case Nil =>
-        cluster.state.members.map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).toList
+        cluster.state.members.filter(_.roles.contains("embedded")).map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).toList
     }
     context.system.scheduler.schedule(1 second, 1 second, self, PingTick(other))
   }
