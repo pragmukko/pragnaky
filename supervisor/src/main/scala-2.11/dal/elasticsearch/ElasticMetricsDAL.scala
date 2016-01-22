@@ -68,7 +68,7 @@ object ElasticSearchInstance {
 
   val settings = Settings.settingsBuilder()
   settings.put("network.host", "0.0.0.0")
-  val node = NodeBuilder.nodeBuilder().local(false).settings(settings).node()
+  val node = NodeBuilder.nodeBuilder().local(true).settings(settings).node()
 
   sys addShutdownHook { node.close() }
 
