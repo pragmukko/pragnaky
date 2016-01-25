@@ -70,6 +70,7 @@ object ElasticSearchInstance {
   settings.put("network.host", "0.0.0.0")
   settings.put("discovery.zen.ping.multicast", false)
   val node = NodeBuilder.nodeBuilder()
+    .local(true)
     .settings(settings)
     .node()
 

@@ -2,6 +2,8 @@ import java.net.InetAddress
 import java.util.Date
 
 import actors.SwarmDiscovery
+import akka.http.scaladsl.server.Route
+import akka.routing.{ActorRefRoutee, BroadcastRoutingLogic, Router, BroadcastGroup}
 import ping.{RichPing, PingHost, PingTick}
 import util.{ConfigGenId, Messages, Telemetry}
 import Messages.Register
@@ -57,6 +59,8 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
   val pinger = new TcpPingerNioSync(self)
 
+  @volatile var subscribers = Router(BroadcastRoutingLogic())
+
   override def receive : Receive = {
 
     case DiscoveredSeedAddresses(seedAddresses: Array[Address]) =>
@@ -72,25 +76,23 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
       cluster.registerOnMemberRemoved(clusterLeave)
 
-      context become processing(Nil)
+      context become processing()
 
     case x => println(s"AgentInit-Unknown: $x")
   }
 
-  def processing(listeners: List[ActorRef]): Receive = {
+  def processing(): Receive = {
+
     case Subscribe(listener) =>
       listener ! DevDiscover
       println("listener added " + listener)
       //listeners += listener
       listener ! Register(netGateway)
-      context become processing(listener :: listeners)
+      subscribers = subscribers.addRoutee(listener)
 
-    case Unsubscribe(listener) =>
-      //listeners -= listener
-      context become processing(listeners.filterNot(_ == listener))
 
     case TelemetryTick =>
-      listeners foreach sendTelemetry
+      sendTelemetry(subscribers)
 
     case PingTick(hosts) =>
       hosts match {
@@ -105,13 +107,16 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
       println(s"Received RichPing: $rp")
-
-      listeners foreach (_ ! rp )
+      subscribers.route(rp, self)
 
     case MemberUp(member) =>
       //println(s"member UP: $member\n- leader: ${cluster.state.leader}\n- members: ${cluster.state.members}")
     case MemberRemoved(member, _) =>
-      //println(s"member REMOVED: $member\n- leader: ${cluster.state.leader}\n- members: ${cluster.state.members}")
+      val routeeOpt = subscribers.routees
+        .collect { case ActorRefRoutee(ref) => ref}
+        .filter(_.path.address == member.address).headOption
+      routeeOpt foreach subscribers.removeRoutee
+
       if (cluster.state.leader.contains(cluster.selfAddress) && cluster.state.members.size == 1 && cluster.state.members.map(_.address).contains(cluster.selfAddress)) {
         println(s"it seems that node is disconnected from the cluster - shutting down...")
         cluster.down(cluster.selfAddress)
@@ -124,21 +129,9 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     cluster.state.members.filter(_.roles.contains("embedded")).map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatten.toList
   }
 
-  def pingNextKnownHost(hosts:List[InetAddress]) = {
-    val other = hosts match {
-      case head :: rest =>
-        pinger.ping(head)
-        rest
-
-      case Nil =>
-        cluster.state.members.filter(_.roles.contains("embedded")).map(_.address.host).filterNot(_ == cluster.selfAddress.host).flatMap(_.map(InetAddress.getByName)).toList
-    }
-    context.system.scheduler.schedule(1 second, 1 second, self, PingTick(other))
-  }
-
-  def sendTelemetry(dst:ActorRef) = {
+  def sendTelemetry(dst:Router) = {
     nodeTelemetry match {
-      case Success(tel) => dst ! Array(tel)
+      case Success(tel) => dst.route(Array(tel), self)
       case Failure(th) => log.error(th, "Can't obtain telemetry")
     }
   }

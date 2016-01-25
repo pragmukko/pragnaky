@@ -15,5 +15,10 @@ object Messages {
 
   case class PersistenceError(err:Any)
 
+  case object Edges
+  case object Nodes
+  case class RawQuery(dataType:String, query:String, sort:Option[String], limit:Option[Int])
+
+
 }
 

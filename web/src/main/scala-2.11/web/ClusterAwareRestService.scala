@@ -2,6 +2,12 @@ package web
 
 import java.net.InetAddress
 
+import akka.actor.Actor
+import akka.actor.Actor.Receive
+import akka.cluster.Cluster
+import akka.cluster.ClusterEvent.{MemberEvent, InitialStateAsSnapshot}
+import akka.cluster.pubsub.{DistributedPubSubSettings, DistributedPubSubMediator}
+import akka.dispatch.Dispatchers
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import utils.{ConfigProvider, ClusterNode}
@@ -12,26 +18,18 @@ import org.elasticsearch.client.Client
  */
 object ClusterAwareRestService extends App with ClusterNode with ConfigProvider {
 
-  new RestService(clientProvider, config)(system).start()
+  /*override val mediator = {
 
-  def clientProvider(callback: Client => String  ) : String = {
-    val addresses = listMembers
-      .filter(_.hasRole("server"))
-      .map( m => new InetSocketTransportAddress(InetAddress.getByName(m.address.host.getOrElse("localhost")), 9300) )
+    val settings = DistributedPubSubSettings(system)
 
-    val client = addresses.foldLeft(TransportClient.builder().build()) {
-      (acc, addr) => acc.addTransportAddress(addr)
+    val name = system.settings.config.getString("akka.cluster.pub-sub.name")
+    val dispatcher = system.settings.config.getString("akka.cluster.pub-sub.use-dispatcher") match {
+      case "" ⇒ Dispatchers.DefaultDispatcherId
+      case id ⇒ id
     }
+    system.actorOf(DistributedPubSubMediator.props(settings).withDispatcher(dispatcher), name)
+  }*/
 
-    try {
-      callback(client)
-    } catch {
-      case th:Throwable =>
-        th.printStackTrace()
-        throw th
-    } finally {
-      client.close()
-    }
-  }
+  new RestService(mediator, config)(system).start()
 
 }

@@ -31,39 +31,40 @@ function diferentNetwork(from, to, tokensCount) {
 }
 
 function updateData(nodesCallback, edgesCallback) {
+    
+    $.getJSON(authority() + "/nodes", function(nodes) {
         
-        $.getJSON(authority() + "/edges", function(edges) {
-            var start = new Date().getTime();
-            var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
-            var nodes = {};
-            var edgArr =edges.map( function(item) {
-                var idarr = [item.source, item.dest ].sort();
-                nodes[item.source] = 0;
-                nodes[item.dest] = 0;
-                return {
-                    id: idarr[0] + "_" + idarr[1], 
-                    from: idarr[0],
-                    to: idarr[1],
-                    length: 1000 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item.source, item.dest, 3) * 500,
-                    //hidden: true,
-                    color: {
-                        color: "rgba(100, 100, 100, 0.1)",
-                        hover: "rgba(100, 100, 255, 0.5)",
-                        highlight: "#6699ff"
-                    }
+        nodesCallback(nodes.map(function(item){
+            return {
+                id: item,
+                label: item,
+                group: getNetAddr(item)                    
+            }
+        }));
+
+    });
+        
+
+        
+    $.getJSON(authority() + "/edges", function(edges) {
+        var start = new Date().getTime();
+        var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
+        var edgArr =edges.map( function(item) {
+            var idarr = [item.source, item.dest ].sort();
+            return {
+                id: idarr[0] + "_" + idarr[1], 
+                from: idarr[0],
+                to: idarr[1],
+                length: 1000 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item.source, item.dest, 3) * 500,
+                //hidden: true,
+                color: {
+                    color: "rgba(100, 100, 100, 0.1)",
+                    hover: "rgba(100, 100, 255, 0.5)",
+                    highlight: "#6699ff"
                 }
-            } );
-            var nodesArr = [];
-            for (var n in nodes) nodesArr.push(n);
-            nodesCallback(nodesArr.map(function(item){
-                return {
-                    id: item,
-                    label: item,
-                    group: getNetAddr(item)
-                    
-                }
-            }));
-            edgesCallback(edgArr);
+            }
+        } );
+        edgesCallback(edgArr);
         console.log(new Date().getTime() - start);
     }).fail(function( jqxhr, textStatus, error ) {
         var err = textStatus + ", " + error;

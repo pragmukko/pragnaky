@@ -1,6 +1,9 @@
 package web
 
-import akka.actor.ActorSystem
+import java.util.concurrent.TimeUnit
+
+import akka.actor.{ActorRef, ActorSystem}
+import akka.cluster.pubsub.DistributedPubSubMediator.Send
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshaller
@@ -8,6 +11,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{`Access-Control-Allow-Credentials`, `Access-Control-Max-Age`, `Access-Control-Allow-Headers`}
 import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
+import akka.util.Timeout
 import com.typesafe.config.Config
 import http.CorsSupport
 import org.elasticsearch.action.search.SearchType
@@ -19,17 +23,22 @@ import akka.http.scaladsl.model.StatusCodes._
 import org.elasticsearch.search.aggregations.metrics.avg.Avg
 import org.elasticsearch.search.sort.SortOrder
 import spray.json._
+import util.Messages.{Nodes, Edges, RawQuery}
 import utils.ConfigProvider
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.parsing.json.{JSONFormat, JSONObject, JSONArray}
 import scala.collection.JavaConversions._
+import akka.pattern._
 
 /**
  * Created by yishchuk on 30.11.2015.
  */
-class RestService(clientProvider: (Client => String) => String, config:Config)(implicit system:ActorSystem) extends CorsSupport with SprayJsonSupport {
+class RestService(mediator: ActorRef, config:Config)(implicit system:ActorSystem) extends CorsSupport with SprayJsonSupport {
 
   implicit val materializer = ActorMaterializer()
+  implicit val executionContext = system.dispatcher
+  implicit val timeout = Timeout(2, TimeUnit.SECONDS)
 
   override val corsAllowOrigins: List[String] = List("*")
   override val corsAllowedHeaders: List[String] = List("Origin", "X-Requested-With", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Host", "Referer", "User-Agent")
@@ -57,66 +66,22 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
         parameters('q.as[String], 'sort.as[String] ?, 'limit.as[Int] ?) {
           (q, sort, limit) =>
             complete {
-              clientProvider {
-                c =>
-                  val request = c.prepareSearch("stat")
-                    .setTypes(dataType)
-                    .setSearchType(SearchType.QUERY_THEN_FETCH)
-                    .setFrom(0)
-                    .setSize(limit.getOrElse(10000))
-                    .setQuery(q)
-
-                  sort
-                    .map(_.split(':').toList)
-                    .collect{ case a :: b :: Nil => a -> b  }
-                    .foreach(x => request.addSort(x._1, SortOrder.valueOf(x._2) ))
-
-                  val res = request.execute().actionGet()
-                  JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString(jsonObjFormatter)
-              }
+              val m = RawQuery(dataType, q, sort, limit)
+              sendMsg(m)
             }
+
         }
      }
    } ~ path("edges") {
      get {
        complete {
-         clientProvider {
-           c =>
-             val latencyAggr = AggregationBuilders.avg("avg_ping").field("pingTotal")
-             val srcAddrAggr = AggregationBuilders.terms("source").field("source").size(0).subAggregation(latencyAggr)
-             val destAddrAggr = AggregationBuilders.terms("dest").field("dest").size(0).subAggregation(srcAddrAggr)
-             val resp = c.prepareSearch("stat").setTypes("latency").addAggregation(destAddrAggr).execute().actionGet()
-
-             val terms = resp.getAggregations.get("dest").asInstanceOf[Terms]
-             val respArray = terms.getBuckets.flatMap {
-               destBucket =>
-                 val dst = destBucket.getKey
-
-                 destBucket.getAggregations.get("source").asInstanceOf[Terms].getBuckets.map {
-                   sourceBucket =>
-                     Map(
-                       "dest" -> dst,
-                       "source" -> sourceBucket.getKey,
-                       "last" -> sourceBucket.getAggregations.get("avg_ping").asInstanceOf[Avg].getValue
-                     )
-                 }
-             }
-
-             JSONArray(respArray.toList).toString{ case m:Map[String, _] => JSONObject(m).toString()}
-         }
-
+         sendMsg(Edges)
        }
      }
    } ~ path("nodes") {
      get {
        complete {
-         clientProvider {
-           c =>
-             val aggr = AggregationBuilders.terms("nodes").field("addr").size(0)
-             val resp = c.prepareSearch("stat").setTypes("telemetry").addAggregation(aggr).execute().actionGet()
-             val terms = resp.getAggregations.get("nodes").asInstanceOf[Terms]
-             JSONArray(terms.getBuckets.map(_.getKey).toList).toString()
-         }
+         sendMsg(Nodes)
        }
      }
    } ~ path("") {
@@ -126,6 +91,14 @@ class RestService(clientProvider: (Client => String) => String, config:Config)(i
    } ~
      getFromResourceDirectory("www")
 
+  }
+
+  def sendMsg(msg:Any): Future[String] = try {
+    (mediator ? Send(path = "/user/TelemetryAdapter", msg = msg, localAffinity = false)) collect { case resp:String => resp }
+  } catch {
+    case th:Throwable =>
+      th.printStackTrace()
+      throw th
   }
 
   def jsonObjFormatter(v:Any) : String = v match {
