@@ -44,8 +44,6 @@ function updateData(nodesCallback, edgesCallback) {
 
     });
         
-
-        
     $.getJSON(authority() + "/edges", function(edges) {
         var start = new Date().getTime();
         var max = edges.reduce(function(acc, item) { return item.last > acc ? item.last : acc }, 0);
@@ -146,7 +144,7 @@ function TelemetryVizualizer(host) {
             return;
         }
         
-        var fromTime = new Date().getTime() - (2 * 24 * 60 * 60 * 1000);
+        var fromTime = new Date().getTime() - (30 * 1000);
         var rangeQuery = { timestamp : { gte: fromTime } };
         query.query['range'] = rangeQuery;
         
@@ -158,7 +156,7 @@ function TelemetryVizualizer(host) {
                     return acc;
                 }, [] );
                 telemetryDataset.update(ltn);
-                graph2d.fit();
+                //graph2d.fit();
                 
             }
         });
@@ -227,7 +225,7 @@ function LatencyVizualizer(from, to) {
         if (!isRunning) {
             return;
         }
-        var fromTime = new Date().getTime() - (2 * 24 * 60 * 60 * 1000);
+        var fromTime = new Date().getTime() - (30 * 1000);
         var rangeQuery = { time : { gte: fromTime } };
         query.query['range'] = rangeQuery;
         reverseQuery.query['range'] = rangeQuery;
@@ -251,7 +249,7 @@ function LatencyVizualizer(from, to) {
             var arr = ltn1.concat(ltn2);
             
             latencyDataset.update(arr);
-            graph2d.fit();
+            //graph2d.fit();
             
         });
     
@@ -402,7 +400,7 @@ $(function() {
             }, 
             function(data) { 
                 addItem(data, edges); 
-                network.fit({animation: animationOptions}); 
+                //network.fit({animation: animationOptions}); 
                 setTimeout(updateCallback, 10000);
             }
         );

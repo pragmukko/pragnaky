@@ -3,7 +3,7 @@ import java.util.Date
 
 import actors.SwarmDiscovery
 import akka.http.scaladsl.server.Route
-import akka.routing.{ActorRefRoutee, BroadcastRoutingLogic, Router, BroadcastGroup}
+import akka.routing._
 import ping.{RichPing, PingHost, PingTick}
 import util.{ConfigGenId, Messages, Telemetry}
 import Messages.Register
@@ -40,16 +40,12 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
       classOf[MemberEvent], classOf[UnreachableMember])
   }
 
-  //@volatile var listeners = Set.empty[ActorRef]
-
   import context.dispatcher
 
-  //discoverAndJoin()
   startDiscovery()
 
   private val pingerInterval: FiniteDuration = config.getDuration("pinger.interval")
 
-  //context.system.scheduler.schedule(1 second, pingerInterval, self, PingTick(Nil))
 
   val terminator = context.system.scheduler.scheduleOnce(10 seconds) {
     log.warning("Couldn't find cluster, shutting down")
@@ -59,7 +55,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
 
   val pinger = new TcpPingerNioSync(self)
 
-  @volatile var subscribers = Router(BroadcastRoutingLogic())
+  @volatile var subscribers = Router(RandomRoutingLogic())
 
   override def receive : Receive = {
 
@@ -86,10 +82,8 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
     case Subscribe(listener) =>
       listener ! DevDiscover
       println("listener added " + listener)
-      //listeners += listener
       listener ! Register(netGateway)
       subscribers = subscribers.addRoutee(listener)
-
 
     case TelemetryTick =>
       sendTelemetry(subscribers)
@@ -109,20 +103,19 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
       println(s"Received RichPing: $rp")
       subscribers.route(rp, self)
 
-    case MemberUp(member) =>
-      //println(s"member UP: $member\n- leader: ${cluster.state.leader}\n- members: ${cluster.state.members}")
-    case MemberRemoved(member, _) =>
-      val routeeOpt = subscribers.routees
-        .collect { case ActorRefRoutee(ref) => ref}
-        .filter(_.path.address == member.address).headOption
+    case UnreachableMember(member) =>
+      val routeeOpt = subscribers.routees.collect {
+        case ar @ ActorRefRoutee(ref) if ref.path.address == member.address => ar
+      }
       routeeOpt foreach subscribers.removeRoutee
 
+    case MemberRemoved(member, _) =>
       if (cluster.state.leader.contains(cluster.selfAddress) && cluster.state.members.size == 1 && cluster.state.members.map(_.address).contains(cluster.selfAddress)) {
         println(s"it seems that node is disconnected from the cluster - shutting down...")
         cluster.down(cluster.selfAddress)
         //context.system.terminate()
       }
-    case x => println(s"Agent-Unknown: $x")
+    case x =>
   }
 
   def knownHosts = {

@@ -1,3 +1,4 @@
+import actors.Messages.Start
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Put
 import dal.elasticsearch.ElasticMetricsDAL
@@ -11,7 +12,7 @@ import util.{ConfigGenId, Messages}
 import util.Messages._
 import actors.GCExtentions
 import akka.actor.{ActorLogging, ActorRef}
-import akka.cluster.ClusterEvent.MemberUp
+import akka.cluster.ClusterEvent._
 import builders.GRoundControlNode
 import spray.json.{JsNumber, JsString, JsObject}
 
@@ -41,6 +42,8 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
   mediator ! Put(self)
 
   override def process(manager: ActorRef): Receive = {
+
+    case Start => subscribeExistingMemebers()
 
     case MemberUp(member) =>
       println("Subscribe " + member.address)
@@ -104,6 +107,15 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
       val strRes = JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString(jsonObjFormatter)
       sender() ! strRes
 
+
+    case unknown => println("UNKNOWN: " + unknown)
+
+  }
+
+  def subscribeExistingMemebers() : Unit = {
+    val m = cluster.state.members.filter(_.hasRole("embedded"))
+    println("!!" + m)
+    m.foreach(subscribeTelemetry)
   }
 
   def jsonObjFormatter(v:Any) : String = v match {
@@ -117,6 +129,7 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
 
     case null =>
       "0"
+
     case other =>
       JSONFormat.defaultFormatter(other)
 

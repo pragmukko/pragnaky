@@ -68,9 +68,9 @@ object ElasticSearchInstance {
 
   val settings = Settings.settingsBuilder()
   settings.put("network.host", "0.0.0.0")
-  settings.put("discovery.zen.ping.multicast", false)
+  settings.put("number_of_shards", 2)
+  settings.put("number_of_replicas", 2)
   val node = NodeBuilder.nodeBuilder()
-    .local(true)
     .settings(settings)
     .node()
 

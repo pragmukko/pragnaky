@@ -18,18 +18,6 @@ import org.elasticsearch.client.Client
  */
 object ClusterAwareRestService extends App with ClusterNode with ConfigProvider {
 
-  /*override val mediator = {
-
-    val settings = DistributedPubSubSettings(system)
-
-    val name = system.settings.config.getString("akka.cluster.pub-sub.name")
-    val dispatcher = system.settings.config.getString("akka.cluster.pub-sub.use-dispatcher") match {
-      case "" ⇒ Dispatchers.DefaultDispatcherId
-      case id ⇒ id
-    }
-    system.actorOf(DistributedPubSubMediator.props(settings).withDispatcher(dispatcher), name)
-  }*/
-
   new RestService(mediator, config)(system).start()
 
 }
