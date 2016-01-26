@@ -38,8 +38,8 @@ lazy val pinger = project.in(file("pinger")).
   settings(commonSettings: _*).settings(
     name := "pinger",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor" % akkaV,
-      "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamV
+      "com.typesafe.akka" %% "akka-actor" % akkaV/*,
+      "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamV*/
     )
 
   )
@@ -79,9 +79,17 @@ lazy val agent = project.in(file("agent")).
     name := "agent",
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
-      ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
-      ("default"  % "swarmakka_2.11" % swarmV).exclude("org.eclipse.paho", "org.eclipse.paho.client.mqttv3").exclude("com.sandinh", "paho-akka_2.11").exclude("de.heikoseeberger", "akka-sse_2.11").exclude("org.scala-lang", "scala-compiler")
-
+      //("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
+      ("default"  % "swarmakka_2.11" % swarmV).excludeAll(
+        ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
+        ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
+        ExclusionRule(organization="de.heikoseeberger", name="akka-sse_2.11"),
+        ExclusionRule(organization="org.scala-lang", name="scala-compiler"),
+        ExclusionRule(organization="com.typesafe.akka", name="akka-http-core-experimental_2.11"),
+        ExclusionRule(organization="com.typesafe.akka", name="akka-http-experimental_2.11"),
+        ExclusionRule(organization="com.typesafe.akka", name="akka-http-spray-json-experimental_2.11"),
+        ExclusionRule(organization="com.typesafe.akka", name="akka-stream-experimental_2.11")
+      )
     ),
     mainClass in assembly := Some("Agent")
   )

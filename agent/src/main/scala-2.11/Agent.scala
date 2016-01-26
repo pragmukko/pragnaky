@@ -2,7 +2,6 @@ import java.net.InetAddress
 import java.util.Date
 
 import actors.SwarmDiscovery
-import akka.http.scaladsl.server.Route
 import akka.routing.{ActorRefRoutee, BroadcastRoutingLogic, Router, BroadcastGroup}
 import ping.{RichPing, PingHost, PingTick}
 import util.{ConfigGenId, Messages, Telemetry}
