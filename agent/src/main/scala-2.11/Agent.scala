@@ -2,9 +2,9 @@ import java.net.InetAddress
 import java.util.Date
 
 import actors.SwarmDiscovery
-import akka.http.scaladsl.server.Route
 import akka.routing._
-import ping.{RichPing, PingHost, PingTick}
+import akka.routing.{ActorRefRoutee, Router}
+import ping.{RichPing, PingTick}
 import util.{ConfigGenId, Messages, Telemetry}
 import Messages.Register
 import actors.Messages._
@@ -12,8 +12,7 @@ import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import builders.EmbeddedNode
-import spray.json.{JsString, JsNumber, JsObject}
-import utils.{ConfigProvider, NetUtils, MemberUtils}
+import utils.ConfigProvider
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Try, Failure, Success}

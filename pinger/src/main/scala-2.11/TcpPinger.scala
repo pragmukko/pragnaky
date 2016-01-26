@@ -8,10 +8,9 @@ import java.util.concurrent
 import akka.actor._
 import akka.io.{Tcp, IO}
 import akka.io.Tcp.Register
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Flow, Source}
-import akka.stream.scaladsl.Tcp.{IncomingConnection, ServerBinding}
-import akka.stream.stage.{PushStage, Context, SyncDirective}
+//import akka.stream.ActorMaterializer
+//import akka.stream.scaladsl.{Sink, Flow, Source}
+//import akka.stream.scaladsl.Tcp.{IncomingConnection, ServerBinding}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import ping.{RichPing, PingStart}
@@ -120,6 +119,7 @@ class TcpResponderConnection(remote: InetSocketAddress, local: InetSocketAddress
   }
 }
 
+/*
 class TcpPingResponderFlow(implicit val system: ActorSystem) extends PingerConfigProvider {
   import akka.stream.scaladsl.Tcp
   implicit val materializer = ActorMaterializer()
@@ -171,7 +171,7 @@ class TcpPingerFlow(host: String, replyTo: ActorRef)(implicit val system: ActorS
   }
 
 }
-
+*/
 class TcpPingResponderNio extends PingerConfigProvider with PingNio {
 
   //this.setDaemon(true)
