@@ -14,14 +14,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.typesafe.config.Config
 import http.CorsSupport
-import org.elasticsearch.action.search.SearchType
-import org.elasticsearch.client.Client
-import org.elasticsearch.index.query.QueryBuilder
-import org.elasticsearch.search.aggregations.bucket.terms.Terms
-import org.elasticsearch.search.aggregations.AggregationBuilders
 import akka.http.scaladsl.model.StatusCodes._
-import org.elasticsearch.search.aggregations.metrics.avg.Avg
-import org.elasticsearch.search.sort.SortOrder
 import spray.json._
 import util.Messages.{Nodes, Edges, RawQuery}
 import utils.ConfigProvider

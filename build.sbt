@@ -51,8 +51,6 @@ lazy val web = project.in(file("web")).
     resolvers ++= Seq("Paho Nightly Snapshots" at "https://repo.eclipse.org/content/repositories/paho-snapshots/"),
     libraryDependencies ++= Seq(
       ("com.typesafe.akka"  %%  "akka-http-experimental" % akkaStreamV).excludeAll(ExclusionRule(organization="org.scala-lang", name="scala-compiler")),
-      "com.typesafe.akka" % "akka-agent_2.11" % akkaV,
-      "org.elasticsearch" % "elasticsearch" % "2.1.1",
       ("default"  % "swarmakka_2.11" % swarmV).excludeAll(
         ExclusionRule(organization="org.eclipse.paho", name="org.eclipse.paho.client.mqttv3"),
         ExclusionRule(organization="com.sandinh", name="paho-akka_2.11"),
@@ -109,7 +107,8 @@ lazy val supervisor = project.in(file("supervisor")).
           ExclusionRule(organization="com.typesafe.akka", name="akka-http-spray-json-experimental_2.11")/*,
           ExclusionRule(organization="com.typesafe.akka", name="akka-stream-experimental_2.11")*/
       ),
-      "org.elasticsearch" % "elasticsearch" % "2.1.1"
+      "org.elasticsearch" % "elasticsearch" % "2.1.1",
+      "com.ecwid.consul" % "consul-api" % "1.1.8"
     ),
     mainClass in assembly := Some("Supervisor")
   )

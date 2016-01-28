@@ -15,6 +15,7 @@ import akka.actor.{ActorLogging, ActorRef}
 import akka.cluster.ClusterEvent._
 import builders.GRoundControlNode
 import spray.json.{JsNumber, JsString, JsObject}
+import utils.ConfigProvider
 
 import scala.util.parsing.json.{JSONFormat, JSONObject, JSONArray}
 
@@ -34,7 +35,7 @@ object Supervisor extends App {
     .start()
 }
 
-class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLogging {
+class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLogging with ConfigProvider {
 
   implicit val executionContext = context.dispatcher
 

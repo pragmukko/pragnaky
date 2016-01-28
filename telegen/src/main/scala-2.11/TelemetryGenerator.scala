@@ -6,6 +6,7 @@ import akka.actor.Actor.Receive
 import ping.RichPing
 import spray.json._
 import util.Messages.PersistenceError
+import utils.ConfigProvider
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future, ExecutionContext}
@@ -24,7 +25,7 @@ object TelemetryGenerator extends App {
 
 }
 
-class TelemetryWriter extends Actor with ElasticMetricsDAL {
+class TelemetryWriter extends Actor with ConfigProvider with ElasticMetricsDAL {
 
   implicit val executionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 

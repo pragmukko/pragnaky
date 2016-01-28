@@ -1,13 +1,16 @@
 package dal.elasticsearch
 
+import java.net.InetAddress
 import java.util.Date
 
-import akka.actor.{ActorRef, Actor}
+import akka.actor.Actor
 import dal.MetricsDAL
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.node.NodeBuilder
 import spray.json.{JsNumber, JsString, JsObject}
@@ -21,10 +24,18 @@ import scala.util.{Failure, Success, Try}
  */
 trait ElasticMetricsDAL extends MetricsDAL {
 
-  me: Actor =>
+  me: Actor with ConfigProvider =>
 
-  val esClient = ElasticSearchInstance.client
   val indexTimeout = TimeValue.timeValueMillis(500)
+  val esClient = {
+    ElasticSearchProvider.client() match {
+      case Some(client) => client
+      case None =>
+        println("Coundn't connect to remote ES, starting local ES instance")
+        ElasticSearchInstance.client
+    }
+  }
+  println(s"esClient: $esClient")
 
   override def persistTelemetry(host: String, telemetry: Seq[JsObject]): Unit = handleBulkError {
     val withAddr = telemetry.map( t => JsObject(
@@ -70,7 +81,8 @@ object ElasticSearchInstance {
   settings.put("network.host", "0.0.0.0")
   settings.put("number_of_shards", 2)
   settings.put("number_of_replicas", 2)
-  val node = NodeBuilder.nodeBuilder()
+  settings.put("path.home", "Data")
+  lazy val node = NodeBuilder.nodeBuilder()
     .settings(settings)
     .node()
 
@@ -78,4 +90,25 @@ object ElasticSearchInstance {
 
   def client : Client = node.client()
 
+}
+
+object ElasticSearchProvider extends ConfigProvider {
+
+  def client() = {
+    import scala.collection.JavaConversions._
+    import com.ecwid.consul.v1._
+    Try {
+      val consul = new ConsulClient(config.getString("consul.host"), config.getInt("consul.port"))
+      val nodes = consul.getCatalogService(config.getString("consul.service-name"), QueryParams.DEFAULT).getValue
+      println(s"consul service nodes: $nodes")
+      val addresses = nodes.toList map { n => new InetSocketTransportAddress(InetAddress.getByName(n.getAddress), n.getServicePort) }
+      val client: TransportClient = TransportClient.builder().build().addTransportAddresses(addresses: _*)
+      println(s"es connected nodes: ${client.connectedNodes()}")
+      if (client.connectedNodes().isEmpty) None else Some(client)
+    } recover {
+      case t =>
+        println(s"Can't get ES client: ${t.getLocalizedMessage}")
+        None
+    } get
+  }
 }
