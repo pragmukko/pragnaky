@@ -1,7 +1,7 @@
 import java.security.SecureRandom
 import java.util.concurrent.{Executors, ExecutorService}
 
-import akka.actor.{Props, Actor, ActorSystem}
+import akka.actor.{ActorLogging, Props, Actor, ActorSystem}
 import akka.actor.Actor.Receive
 import ping.RichPing
 import spray.json._
@@ -25,7 +25,7 @@ object TelemetryGenerator extends App {
 
 }
 
-class TelemetryWriter extends Actor with ConfigProvider with ElasticMetricsDAL {
+class TelemetryWriter extends Actor with ConfigProvider with ActorLogging with ElasticMetricsDAL {
 
   implicit val executionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 

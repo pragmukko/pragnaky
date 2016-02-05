@@ -7,3 +7,4 @@ mongo_db/
 .DS_Store
 /native
 /es
+/Data

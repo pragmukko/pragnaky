@@ -7,7 +7,7 @@ import utils.{NetUtils, ConfigProvider}
  */
 trait ConfigGenId { cp: ConfigProvider =>
 
-  override val additionalConfig = {
+  override lazy val additionalConfig = {
     val memberId = s"member-${NetUtils.localHost.getHostAddress}"
     System.setProperty("member-id", memberId)
     List(

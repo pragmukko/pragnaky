@@ -114,7 +114,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
         cluster.down(cluster.selfAddress)
         //context.system.terminate()
       }
-    case x =>
+    case x => println("!! " + x)
   }
 
   def knownHosts = {

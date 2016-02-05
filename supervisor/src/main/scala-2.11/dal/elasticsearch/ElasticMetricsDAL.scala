@@ -3,7 +3,7 @@ package dal.elasticsearch
 import java.net.InetAddress
 import java.util.Date
 
-import akka.actor.Actor
+import akka.actor.{ActorLogging, Actor}
 import dal.MetricsDAL
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexResponse
@@ -24,14 +24,15 @@ import scala.util.{Failure, Success, Try}
  */
 trait ElasticMetricsDAL extends MetricsDAL {
 
-  me: Actor with ConfigProvider =>
+  me: Actor with ConfigProvider with ActorLogging =>
 
   val indexTimeout = TimeValue.timeValueMillis(500)
   val esClient = {
     ElasticSearchProvider.client() match {
-      case Some(client) => client
-      case None =>
-        println("Coundn't connect to remote ES, starting local ES instance")
+      case Success(client) => client
+      case Failure(th) =>
+        th.printStackTrace()
+        log.error("Coundn't connect to remote ES, starting local ES instance")
         ElasticSearchInstance.client
     }
   }
@@ -94,7 +95,7 @@ object ElasticSearchInstance {
 
 object ElasticSearchProvider extends ConfigProvider {
 
-  def client() = {
+  def client() : Try[Client] = {
     import scala.collection.JavaConversions._
     import com.ecwid.consul.v1._
     Try {
@@ -103,12 +104,8 @@ object ElasticSearchProvider extends ConfigProvider {
       println(s"consul service nodes: $nodes")
       val addresses = nodes.toList map { n => new InetSocketTransportAddress(InetAddress.getByName(n.getAddress), n.getServicePort) }
       val client: TransportClient = TransportClient.builder().build().addTransportAddresses(addresses: _*)
-      println(s"es connected nodes: ${client.connectedNodes()}")
-      if (client.connectedNodes().isEmpty) None else Some(client)
-    } recover {
-      case t =>
-        println(s"Can't get ES client: ${t.getLocalizedMessage}")
-        None
-    } get
+      if (client.connectedNodes().length == 0) throw new Exception("No Elasticsearch connected nodes")
+      client
+    }
   }
 }
