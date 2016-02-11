@@ -17,7 +17,7 @@ object Messages {
 
   case object Edges
   case object Nodes
-  case class RawQuery(dataType:String, query:String, sort:Option[String], limit:Option[Int])
+  case class RawQuery(dataType:String, query:String, sort:Option[String], limit:Option[Int], fields:Option[String])
 
 
 }

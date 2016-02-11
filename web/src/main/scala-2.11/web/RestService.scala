@@ -56,10 +56,10 @@ class RestService(mediator: ActorRef, config:Config)(implicit system:ActorSystem
   val routes = {
    path("db" / Segment ) {
      dataType => {
-        parameters('q.as[String], 'sort.as[String] ?, 'limit.as[Int] ?) {
-          (q, sort, limit) =>
+        parameters('q.as[String], 'sort.as[String] ?, 'limit.as[Int] ?, 'fields.as[String]) {
+          (q, sort, limit, fields) =>
             complete {
-              val m = RawQuery(dataType, q, sort, limit)
+              val m = RawQuery(dataType, q, sort, limit, Some(fields))
               sendMsg(m)
             }
 

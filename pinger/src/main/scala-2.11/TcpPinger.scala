@@ -291,6 +291,7 @@ trait Pinger {
   def ping(host: InetAddress): Any
 }
 trait PingNio {
+
   def accept(server: AsynchronousServerSocketChannel): Future[AsynchronousSocketChannel] = {
     val p = Promise[AsynchronousSocketChannel]
     server.accept(null, new CompletionHandler[AsynchronousSocketChannel, Void] {

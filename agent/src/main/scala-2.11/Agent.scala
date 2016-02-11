@@ -53,6 +53,7 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
   }
 
   val pinger = new TcpPingerNioSync(self)
+  val selfHost = InetAddress.getByName(config.getString("akka.remote.netty.tcp.hostname")).getHostAddress()
 
   @volatile var subscribers = Router(RandomRoutingLogic())
 
@@ -99,8 +100,9 @@ class ClusterState extends Actor with Telemetry with ActorLogging with ConfigPro
       }
 
     case rp @ RichPing(time, source, dest, pingTo, pingFrom, pingTotal) =>
-      println(s"Received RichPing: $rp")
-      subscribers.route(rp, self)
+      val nrp = RichPing(time, selfHost, dest, pingTo, pingFrom, pingTotal)
+      println(s"Received RichPing: $nrp")
+      subscribers.route(nrp, self)
 
     case UnreachableMember(member) =>
       val routeeOpt = subscribers.routees.collect {

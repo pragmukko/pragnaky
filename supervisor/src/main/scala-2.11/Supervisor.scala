@@ -1,3 +1,6 @@
+import java.net.InetAddress
+import java.util.Date
+
 import actors.Messages.Start
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Put
@@ -61,12 +64,20 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
         case th:Throwable => log.error(th, "Fail to persist")
         case other => log.error("Fail to persist {0}", other.toString)
       }
+      System.currentTimeMillis()
 
     case Edges =>
       val latencyAggr = AggregationBuilders.avg("avg_ping").field("pingTotal")
       val srcAddrAggr = AggregationBuilders.terms("source").field("source").size(0).subAggregation(latencyAggr)
       val destAddrAggr = AggregationBuilders.terms("dest").field("dest").size(0).subAggregation(srcAddrAggr)
-      val resp = esClient.prepareSearch("stat").setTypes("latency").addAggregation(destAddrAggr).execute().actionGet()
+      val since = System.currentTimeMillis() - ( 5 * 60 * 1000 )
+      val resp = esClient
+        .prepareSearch("stat")
+        .setTypes("latency")
+        .setQuery(s"""{"range": {"time" : {"gte": $since}}}""")
+        .addAggregation(destAddrAggr)
+        .execute()
+        .actionGet()
 
       val terms = resp.getAggregations.get("dest").asInstanceOf[Terms]
       val respArray = terms.getBuckets.flatMap {
@@ -87,11 +98,27 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
 
     case Nodes =>
       val aggr = AggregationBuilders.terms("nodes").field("addr").size(0)
-      val resp = esClient.prepareSearch("stat").setTypes("telemetry").addAggregation(aggr).execute().actionGet()
-      val terms = resp.getAggregations.get("nodes").asInstanceOf[Terms]
-      sender() ! JSONArray(terms.getBuckets.map(_.getKey).toList).toString()
+      val since = System.currentTimeMillis() - ( 5 * 60 * 1000 )
+      val resp = esClient
+        .prepareSearch("stat")
+        .setTypes("telemetry")
+        .addAggregation(aggr)
+        .setQuery(s"""{"range": {"timestamp" : {"gte": $since}}}""")
+        .execute()
+        .actionGet()
 
-    case RawQuery(dataType, query, sort, limit) =>
+      val terms = resp.getAggregations.get("nodes").asInstanceOf[Terms]
+      val nodes = terms.getBuckets.map(_.getKey.toString).toList.map {
+        addr =>
+          val inetAddr = InetAddress.getByName(addr)
+          Map(
+            "host" -> inetAddr.getHostName(),
+            "addr" -> inetAddr.getHostAddress()
+          )
+      }
+      sender() ! JSONArray(nodes).toString(jsonObjFormatter)
+
+    case RawQuery(dataType, query, sort, limit, fields) =>
       val request = esClient.prepareSearch("stat")
         .setTypes(dataType)
         .setSearchType(SearchType.QUERY_THEN_FETCH)
@@ -99,14 +126,19 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
         .setSize(limit.getOrElse(10000))
         .setQuery(query)
 
+      fields
+        .toList
+        .flatMap(_.split(':').toList)
+        .foreach(request.addField(_))
+
       sort
         .map(_.split(':').toList)
         .collect{ case a :: b :: Nil => a -> b  }
         .foreach(x => request.addSort(x._1, SortOrder.valueOf(x._2) ))
 
       val res = request.execute().actionGet()
-      val strRes = JSONArray(res.getHits.getHits.map(_.sourceAsMap().toMap[String, Any]).map(JSONObject(_)).toList).toString(jsonObjFormatter)
-      sender() ! strRes
+      //val strRes = JSONArray(res.getHits.flatMap(_.getFields).map(kvp => (kvp._1, kvp._2.getValues)).toList).toString(jsonObjFormatter)
+      sender() ! new String(res.toString)
 
 
     case unknown => println("UNKNOWN: " + unknown)
@@ -122,6 +154,8 @@ class TelemetryAdapter extends GCExtentions with ElasticMetricsDAL with ActorLog
   def jsonObjFormatter(v:Any) : String = v match {
     case m:java.util.Map[String, Any] =>
       JSONObject(m.toMap).toString(jsonObjFormatter)
+
+    case m:Map[String, _] => JSONObject(m).toString(jsonObjFormatter)
 
     case a:java.util.List[Any] =>
       JSONArray(a.toList).toString(jsonObjFormatter)

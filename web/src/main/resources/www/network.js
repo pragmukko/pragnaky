@@ -3,7 +3,8 @@
 function authority() {
     var url = window.location.href;
     if (url.startsWith("file")) {
-        return "http://193.105.219.176:9000";
+        //return "http://128.107.17.246:9000";
+        return "http://localhost:9000";
     }
     return "";
 }
@@ -36,9 +37,8 @@ function updateData(nodesCallback, edgesCallback) {
         
         nodesCallback(nodes.map(function(item){
             return {
-                id: item,
-                label: item,
-                group: getNetAddr(item)                    
+                id: item.addr,
+                label: item.host                    
             }
         }));
 
@@ -53,7 +53,7 @@ function updateData(nodesCallback, edgesCallback) {
                 id: idarr[0] + "_" + idarr[1], 
                 from: idarr[0],
                 to: idarr[1],
-                length: 1000 + Math.floor((item.last / max) * ( 1000 - 300 ) ) + diferentNetwork(item.source, item.dest, 3) * 500,
+                length: 100 + Math.floor((item.last / max) * ( 100 - 30 ) ) + diferentNetwork(item.source, item.dest, 3) * 50,
                 //hidden: true,
                 color: {
                     color: "rgba(100, 100, 100, 0.1)",
@@ -135,28 +135,43 @@ function TelemetryVizualizer(host) {
         }*/
     };
     var graph2d = new vis.Graph2d(telemetryContainer, telemetryDataset, groups, options);
-    var query = { query : { term: { addr: host } }};
+    var query = { 
+        query : { 
+            bool: { 
+                must: [
+                    {
+                        term: { 
+                            addr: host 
+                        }
+                    }
+                ]
+            }
+        }
+    };
     var sort = encodeURI('timestamp:DESC');
     var isRunning = true;
+    var lastQueryTime = new Date().getTime() - (5 * 60 * 1000);
     
     function plot() {
         if (!isRunning) {
             return;
         }
         
-        var fromTime = new Date().getTime() - (30 * 1000);
-        var rangeQuery = { timestamp : { gte: fromTime } };
-        query.query['range'] = rangeQuery;
-        
-        $.getJSON(authority() + "/db/telemetry?q=" + encodeURI(JSON.stringify(query)) + "&sort=" + sort, function(data) {
-            if (!!data && data.length > 0) {
-                var ltn = data.reduce(function(acc, item) {
-                    acc.push({y: Math.floor(item.cpu * 100), x: item.timestamp, group: 1 });
-                    acc.push({y: Math.floor(item.memory), x: item.timestamp, group: 2 });
+        var fromTime = lastQueryTime;
+        var rangeQuery = { range: { timestamp : { gt: fromTime, lte: new Date().getTime() } }};
+        query.query.bool.must[1] = rangeQuery;
+        lastQueryTime = new Date().getTime();
+        var q = authority() + "/db/telemetry?q=" + encodeURI(JSON.stringify(query)) + "&sort=" + sort + "&fields=add:cpu:memory:timestamp&limit=100";
+        $.getJSON(q, function(data) {
+            if (!!data) {
+                var hits = data.hits.hits;
+                var ltn = hits.reverse().reduce(function(acc, item) {
+                    acc.push({y: Math.floor(item.fields.cpu[0] * 100), x: item.fields.timestamp[0], group: 1 });
+                    acc.push({y: Math.floor(item.fields.memory[0]), x: item.fields.timestamp[0], group: 2 });
                     return acc;
                 }, [] );
                 telemetryDataset.update(ltn);
-                //graph2d.fit();
+                graph2d.fit();
                 
             }
         });
@@ -216,40 +231,67 @@ function LatencyVizualizer(from, to) {
         }
     };
     var graph2d = new vis.Graph2d(latencyContainer, latencyDataset, groups, options);
-    var query = {query: { bool: { should: [  {match: {source: from}}, {match: {dest: to}} ] }}};
-    var reverseQuery = {query: { bool: { should: [  {match: {source: to}}, {match: {dest: from}} ] }}};
+    //var query = {query: { bool: { should: [  {match: {source: from}}, {match: {dest: to}} ] }}};
+     var query = { 
+        query : { 
+            bool: { 
+                must: [
+                    {term: {source: from}}, 
+                    {term: {dest: to}}
+                ]
+            }
+        }
+    };
+    //var reverseQuery = {query: { bool: { should: [  {match: {source: to}}, {match: {dest: from}} ] }}};
+    var reverseQuery = { 
+        query : { 
+            bool: { 
+                must: [
+                    {term: {source: to}}, 
+                    {term: {dest: from}}
+                ]
+            }
+        }
+    };
     var sort = encodeURI('time:DESC');
     var isRunning = true;
+    var lastQueryTime = new Date().getTime() - (5 * 60 * 1000);
     
     function plot() {
         if (!isRunning) {
             return;
         }
-        var fromTime = new Date().getTime() - (30 * 1000);
-        var rangeQuery = { time : { gte: fromTime } };
-        query.query['range'] = rangeQuery;
-        reverseQuery.query['range'] = rangeQuery;
-        var plainReq = $.getJSON(authority() + "/db/latency?q=" + encodeURI(JSON.stringify(query)) + "&sort=" + sort);
-        var reverseReq = $.getJSON(authority() + "/db/latency?q=" + encodeURI(JSON.stringify(reverseQuery)) + "&sort=" + sort);
+        
+        var now = new Date().getTime();
+        var fromTime = lastQueryTime;
+        var rangeQuery = { range: { time : { gt: fromTime, lte: now } }};
+        query.query.bool.must[2] = rangeQuery;
+        reverseQuery.query.bool.must[2] = rangeQuery;
+        lastQueryTime = now;
+        
+        var q = authority() + "/db/latency?q=" + encodeURI(JSON.stringify(query)) + "&sort=" + sort + "&fields=time:pingTotal&limit=100";
+        var q2 = authority() + "/db/latency?q=" + encodeURI(JSON.stringify(reverseQuery)) + "&sort=" + sort + "&fields=time:pingTotal&limit=100";
+        var plainReq = $.getJSON(q);
+        var reverseReq = $.getJSON(q2);
         $.when(plainReq, reverseReq).done(function(dataPlain, dataReverse) {
-            var ltn1 = dataPlain[0].map(function(item) { 
+            var ltn1 = dataPlain[0].hits.hits.map(function(item) { 
                return {
-                   x: item.time,
-                   y: item.pingTotal,
+                   x: item.fields.time[0],
+                   y: item.fields.pingTotal[0],
                    group: 1
                }
             }).reverse();
-            var ltn2 = dataReverse[0].map(function(item) { 
+            var ltn2 = dataReverse[0].hits.hits.map(function(item) { 
                return {
-                   x: item.time,
-                   y: item.pingTotal,
+                   x: item.fields.time[0],
+                   y: item.fields.pingTotal[0],
                    group: 2
                }
             }).reverse();
             var arr = ltn1.concat(ltn2);
             
             latencyDataset.update(arr);
-            //graph2d.fit();
+            graph2d.fit();
             
         });
     
@@ -292,9 +334,9 @@ $(function() {
         },
         physics: {
             barnesHut: {
-                "gravitationalConstant": -151000,
-                "springLength": 60,
-                "springConstant": 0.01,
+                "gravitationalConstant": -1000,
+                "springLength": 10,
+                "springConstant": 0.1,
                 "damping": 1
             },
             "maxVelocity": 150,
@@ -375,6 +417,7 @@ $(function() {
         else
             nodeLst.show();
     });
+    var firstTimeFit = true;
     function updateCallback() {
         var oldNodes = "";
         updateData(
@@ -396,7 +439,10 @@ $(function() {
                         network.focus(value, {animation: animationOptions});
                     });
                 }
-           // network.fit({animation: animationOptions}); 
+                if (firstTimeFit) {
+                    network.fit({animation: animationOptions}); 
+                    firstTimeFit = false;
+                }
             }, 
             function(data) { 
                 addItem(data, edges); 
